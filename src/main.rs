@@ -1,9 +1,9 @@
 extern crate core;
 
-use satisfactory_bp::{next_i64, Resource, parser};
+use nom::error::dbg_dmp;
+use satisfactory_bp::{next_i64, parser, Resource};
 use std::fs::File;
 use std::io::Read;
-use nom::error::dbg_dmp;
 
 fn main() {
     let mut file = File::open("./Coal Left to Right.sbp").expect("sbp file should exist");
@@ -19,7 +19,7 @@ fn main() {
 
     let first = &buf[24..];
     println!("{first:x?}");
-    
+
     let (_rest, resources) = parser::resources(first).unwrap();
 
     // let resource = Resource::try_from(first).unwrap();

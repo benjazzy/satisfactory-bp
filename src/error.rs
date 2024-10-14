@@ -1,6 +1,6 @@
+use nom::error::{ErrorKind, FromExternalError, ParseError};
 use std::fmt::{Debug, Display, Formatter};
 use std::str::Utf8Error;
-use nom::error::{ErrorKind, FromExternalError, ParseError};
 
 #[derive(Debug)]
 pub enum FgStringError<I> {
@@ -38,6 +38,5 @@ impl<I> ParseError<I> for FgStringError<I> {
 impl<I> FromExternalError<I, Utf8Error> for FgStringError<I> {
     fn from_external_error(input: I, kind: ErrorKind, e: Utf8Error) -> Self {
         FgStringError::Utf8Error(nom::error::Error::from_error_kind(input, kind), e)
-        
     }
 }
