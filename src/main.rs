@@ -1,12 +1,10 @@
 extern crate core;
 
-use nom::error::dbg_dmp;
-use satisfactory_bp::{next_i64, parser, Resource};
+use satisfactory_bp::{next_i64, parser};
 use std::fs::File;
 use std::io::Read;
-
 fn main() {
-    let mut file = File::open("./Coal Left to Right.sbp").expect("sbp file should exist");
+    let mut file = File::open("./Test.sbp").expect("sbp file should exist");
 
     let mut buf = Vec::new();
     let size = file.read_to_end(&mut buf).unwrap();
@@ -18,10 +16,26 @@ fn main() {
     println!("Resource count: {resource_count}");
 
     let first = &buf[24..];
-    println!("{first:x?}");
+    // println!("{first:x?}");
 
-    let (_rest, resources) = parser::resources(first).unwrap();
+    let (rest, resources) = parser::resources(first).unwrap();
 
     // let resource = Resource::try_from(first).unwrap();
     println!("Resource: {resources:?}");
+
+    // println!("{:?}", &rest[..32]);
+
+    let (rest, requirements) = parser::requirements(rest).unwrap();
+    println!("Requirements: {requirements:?}");
+    
+    let (rest, body_header) = parser::body_header(rest).unwrap();
+    println!("Body header: {body_header:?}");
+
+    // let mut out_file = File::create("./out.bin").unwrap();
+    // let mut z = read::ZlibDecoder::new(&buf[0x208..]);
+    // let mut decompressed = Vec::new();
+    // let size = z.read_to_end(&mut decompressed).unwrap();
+    //
+    // println!("Decompressed size: {size}");
+    // out_file.write(&decompressed).unwrap();
 }

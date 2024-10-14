@@ -1,6 +1,6 @@
 use crate::error::FgStringError;
 use crate::parser::fg_string;
-use crate::Resource;
+use crate::types::Resource;
 use nom::bytes::complete::tag;
 use nom::combinator::map;
 use nom::multi::length_count;
