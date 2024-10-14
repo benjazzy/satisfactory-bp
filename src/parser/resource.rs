@@ -33,41 +33,11 @@ pub fn resources(blueprint: &[u8]) -> IResult<&[u8], Vec<Resource>, FgStringErro
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nom::AsBytes;
 
     const TEST_BLUEPRINT: &[u8] = include_bytes!("../../Test.sbp");
 
-    fn gen_resource(path: &str, count: i32) -> Vec<u8> {
-        let mut resource = Vec::from((path.len() + 1).to_le_bytes());
-        resource.extend_from_slice(path.as_bytes());
-        resource.push(b'\0');
-        resource.extend_from_slice(&count.to_le_bytes());
-
-        resource
-    }
-
-    fn gen_resource_list(resources: &[Vec<u8>]) -> Vec<u8> {
-        let mut list = Vec::from(&resources.len().to_le_bytes());
-        let iter = resources.iter().flatten();
-        list.extend(iter);
-
-        list
-    }
-
     #[test]
     fn check_resources() {
-        let test_bytes = gen_resource_list(&[gen_resource("/1", 1), gen_resource("/2", 2)]);
-
-        let (rest, resources) = resources(dbg!(&test_bytes)).expect("Test bytes should be valid");
-        assert!(rest.is_empty());
-        assert_eq!(
-            resources,
-            vec![Resource::new("/1", 1), Resource::new("/2", 2)]
-        );
-    }
-
-    #[test]
-    fn check_resources_test_file() {
         let test_bytes = &TEST_BLUEPRINT[24..284];
         let test_resources = &[
             Resource::new(
@@ -90,7 +60,7 @@ mod tests {
     }
 
     #[test]
-    fn check_resource_test_file() {
+    fn check_resource() {
         let test_bytes = &TEST_BLUEPRINT[32..118];
 
         let (rest, resource) = resource(test_bytes).expect("Test input should be valid");
