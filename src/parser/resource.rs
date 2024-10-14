@@ -4,7 +4,7 @@ use crate::Resource;
 use nom::bytes::complete::tag;
 use nom::combinator::map;
 use nom::multi::length_count;
-use nom::number::complete::{le_i32, le_i64, le_u64};
+use nom::number::complete::{le_i32, le_u64};
 use nom::sequence::{pair, terminated};
 use nom::IResult;
 

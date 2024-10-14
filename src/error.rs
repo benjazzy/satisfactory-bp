@@ -30,7 +30,7 @@ impl<I> ParseError<I> for FgStringError<I> {
         FgStringError::NomError(nom::error::Error::from_error_kind(input, kind))
     }
 
-    fn append(input: I, kind: ErrorKind, other: Self) -> Self {
+    fn append(_input: I, _kind: ErrorKind, other: Self) -> Self {
         other
     }
 }

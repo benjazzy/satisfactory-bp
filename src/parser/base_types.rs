@@ -8,10 +8,7 @@ use nom::IResult;
 
 pub fn fg_string(bytes: &[u8]) -> IResult<&[u8], &str, FgStringError<&[u8]>> {
     map_res(
-        terminated(
-            length_data(map(le_u32, |length| length - 1)),
-            char('\0'),
-        ),
+        terminated(length_data(map(le_u32, |length| length - 1)), char('\0')),
         |b| std::str::from_utf8(b),
     )(bytes)
 }
