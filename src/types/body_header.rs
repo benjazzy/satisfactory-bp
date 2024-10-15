@@ -6,10 +6,10 @@ pub enum HeaderVersion {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct BodyHeader {
-    header_version: HeaderVersion,
-    compression_algorithm: u8,
-    compressed_size: i64,
-    uncompressed_size: i64,
+    pub header_version: HeaderVersion,
+    pub compression_algorithm: u8,
+    pub compressed_size: i64,
+    pub uncompressed_size: i64,
 }
 
 impl BodyHeader {

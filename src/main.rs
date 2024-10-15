@@ -1,8 +1,10 @@
 extern crate core;
 
+use flate2::read;
 use satisfactory_bp::{next_i64, parser};
 use std::fs::File;
 use std::io::Read;
+
 fn main() {
     let mut file = File::open("./Test.sbp").expect("sbp file should exist");
 
@@ -27,9 +29,14 @@ fn main() {
 
     let (rest, requirements) = parser::requirements(rest).unwrap();
     println!("Requirements: {requirements:?}");
-    
+
     let (rest, body_header) = parser::body_header(rest).unwrap();
     println!("Body header: {body_header:?}");
+
+    let mut body = Vec::with_capacity(body_header.uncompressed_size as usize);
+    let mut decoder = read::ZlibDecoder::new(rest);
+    let size = decoder.read_to_end(&mut body).unwrap();
+    println!("Uncompressed size: {size}");
 
     // let mut out_file = File::create("./out.bin").unwrap();
     // let mut z = read::ZlibDecoder::new(&buf[0x208..]);
