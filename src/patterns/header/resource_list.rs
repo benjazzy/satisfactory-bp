@@ -5,14 +5,14 @@ use crate::patterns::factory_string::{FString, fstring};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceList<'d> {
     pub length: u32,
-    pub resources: Box<[Resource<'d>]>,
+    pub resources: Vec<Resource<'d>>,
 }
 
 pub fn resource_list<'d>(data: &mut &'d Bytes) -> winnow::Result<ResourceList<'d>> {
     let length = le_u32.parse_next(data)?;
     let resources = (0..length)
         .flat_map(|_| resource.parse_next(data))
-        .collect::<Box<_>>();
+        .collect::<Vec<_>>();
 
     Ok(ResourceList { length, resources })
 }
@@ -83,11 +83,11 @@ mod tests {
 
         let list = ResourceList {
             length: 3,
-            resources: Box::from([
+            resources: vec![
                 Resource { path: "/Game/FactoryGame/Resource/Parts/SteelPlate/Desc_SteelPlate.Desc_SteelPlate_C\0".into(), count: 2 },
                 Resource { path: "/Game/FactoryGame/Resource/Parts/IronPlate/Desc_IronPlate.Desc_IronPlate_C\0".into(), count: 2 },
                 Resource { path: "/Game/FactoryGame/Resource/Parts/Cement/Desc_Cement.Desc_Cement_C\0".into(), count: 2 },
-            ]),
+            ],
         };
 
         let resources = resource_list
