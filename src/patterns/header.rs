@@ -1,9 +1,11 @@
+mod body_header;
 mod recipe_list;
 mod resource_list;
 
+pub use body_header::*;
 pub use recipe_list::*;
 pub use resource_list::*;
-use winnow::{Bytes, Parser, binary::le_u32, error::StrContext};
+use winnow::{Bytes, Parser, binary::le_u32, combinator::seq, error::StrContext};
 
 #[derive(Debug)]
 struct Header<'d> {
@@ -13,34 +15,25 @@ struct Header<'d> {
     pub blueprint_size: [u32; 3],
     pub resource_list: ResourceList<'d>,
     pub recipie_list: RecipeList<'d>,
+    pub body_header: BodyHeader,
 }
 
 pub fn header<'d>(data: &mut &'d Bytes) -> winnow::Result<Header<'d>> {
-    let (maybe_header_version, maybe_save_version, maybe_build_version) = (
-        le_u32.context(StrContext::Label("header version")),
-        le_u32.context(StrContext::Label("save version")),
-        le_u32.context(StrContext::Label("build version")),
-    )
-        .parse_next(data)?;
-    let blueprint_size: [u32; 3] = (le_u32, le_u32, le_u32)
-        .context(StrContext::Label("blueprint size"))
-        .parse_next(data)?
-        .into();
-    let resource_list = resource_list
-        .context(StrContext::Label("resource list"))
-        .parse_next(data)?;
-    let recipie_list = recipe_list
-        .context(StrContext::Label("recipie list"))
-        .parse_next(data)?;
+    seq! {Header {
+        maybe_header_version:le_u32.context(StrContext::Label("header version")),
+        maybe_save_version: le_u32.context(StrContext::Label("save version")),
+        maybe_build_version: le_u32.context(StrContext::Label("build version")),
 
-    Ok(Header {
-        maybe_header_version,
-        maybe_save_version,
-        maybe_build_version,
-        blueprint_size,
-        resource_list,
-        recipie_list,
-    })
+        blueprint_size: (le_u32, le_u32, le_u32).map(Into::into)
+            .context(StrContext::Label("blueprint size")),
+
+        resource_list: resource_list
+            .context(StrContext::Label("resource list")),
+        recipie_list: recipe_list
+            .context(StrContext::Label("recipie list")),
+        body_header: body_header.context(StrContext::Label("body header")),
+    }}
+    .parse_next(data)
 }
 
 #[cfg(test)]
@@ -48,7 +41,7 @@ mod tests {
     use super::*;
     #[test]
     fn check_header() {
-        const DATA: [u8; 0x1D7] = [
+        const DATA: [u8; 0x208] = [
             0x02, 0x00, 0x00, 0x00, 0x2E, 0x00, 0x00, 0x00, 0xF3, 0xA0, 0x05, 0x00, 0x05, 0x00,
             0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x4E, 0x00, 0x00, 0x00, 0x2F, 0x47, 0x61, 0x6D, 0x65, 0x2F,
@@ -82,7 +75,11 @@ mod tests {
             0x69, 0x6E, 0x67, 0x73, 0x2F, 0x57, 0x61, 0x6C, 0x6C, 0x73, 0x2F, 0x52, 0x65, 0x63,
             0x69, 0x70, 0x65, 0x5F, 0x57, 0x61, 0x6C, 0x6C, 0x5F, 0x38, 0x78, 0x34, 0x5F, 0x30,
             0x31, 0x2E, 0x52, 0x65, 0x63, 0x69, 0x70, 0x65, 0x5F, 0x57, 0x61, 0x6C, 0x6C, 0x5F,
-            0x38, 0x78, 0x34, 0x5F, 0x30, 0x31, 0x5F, 0x43, 0x00,
+            0x38, 0x78, 0x34, 0x5F, 0x30, 0x31, 0x5F, 0x43, 0x00, 0xC1, 0x83, 0x2A, 0x9E, 0x22,
+            0x22, 0x22, 0x22, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x4D, 0x02,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xD5, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x4D, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xD5, 0x0A, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00,
         ];
 
         let header = header

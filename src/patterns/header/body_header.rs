@@ -38,12 +38,12 @@ pub fn body_header(data: &mut &Bytes) -> winnow::Result<BodyHeader> {
     const PADDING: &[u8] = &[0x00, 0x00, 0x00, 0x00, 0x03];
 
     let body_header = seq! {BodyHeader {
-        _: MAGIC_NUMBER,
-        header_version: body_header_version,
-        max_chunk_size: le_u32,
-        _: PADDING,
-        compressed_size: le_u64,
-        uncompressed_size: le_u64,
+        _: MAGIC_NUMBER.context(StrContext::Label("magic number 0x9E2A83C1")),
+        header_version: body_header_version.context(StrContext::Label("header version")),
+        max_chunk_size: le_u32.context(StrContext::Label("max chunk size")),
+        _: PADDING.context(StrContext::Label("padding")),
+        compressed_size: le_u64.context(StrContext::Label("first compressed size")),
+        uncompressed_size: le_u64.context(StrContext::Label("first uncompressed size")),
     }}
     .parse_next(data)?;
 
