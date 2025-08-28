@@ -1,21 +1,23 @@
 mod byte_property;
 mod float_property;
 mod object_property;
+mod struct_property;
 
 use winnow::{
     Bytes, Parser,
-    combinator::{alt, dispatch, empty, fail, seq},
+    combinator::{alt, dispatch, empty, fail, repeat, seq, terminated},
     error::StrContext,
 };
 
 pub use byte_property::*;
 pub use float_property::*;
 pub use object_property::*;
+pub use struct_property::*;
 
 use crate::patterns::factory_string::{FString, fstring};
 
 #[derive(Debug, Clone, PartialEq)]
-enum PropertyType<'d> {
+pub enum PropertyType<'d> {
     ByteProperty(ByteProperty<'d>),
     FloatProperty(FloatProperty),
     ObjectProperty,
@@ -24,7 +26,7 @@ enum PropertyType<'d> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct Property<'d> {
+pub struct Property<'d> {
     pub name: FString<'d>,
     pub property: PropertyType<'d>,
 }
@@ -38,21 +40,48 @@ fn none_property<'d>(data: &mut &'d Bytes) -> winnow::Result<Property<'d>> {
     .parse_next(data)
 }
 
-fn property<'d>(data: &mut &'d Bytes) -> winnow::Result<Property<'d>> {
+fn some_property<'d>(data: &mut &'d Bytes) -> winnow::Result<Property<'d>> {
     const BP: FString = FString::new("ByteProperty\0");
     const FP: FString = FString::new("FloatProperty\0");
 
+    seq! {Property {
+        name: fstring.context(StrContext::Label("property name")),
+        property: dispatch! {fstring.context(StrContext::Label("property type"));
+            BP => byte_property.map(PropertyType::ByteProperty),
+            FP => float_property.map(PropertyType::FloatProperty),
+            _ => fail.context(StrContext::Label("unkown property")),
+        }
+    }}
+    .parse_next(data)
+}
+
+fn property<'d>(data: &mut &'d Bytes) -> winnow::Result<Property<'d>> {
     alt((
         none_property.context(StrContext::Label("none property")),
-        seq! {Property {
-            name: fstring.context(StrContext::Label("property name")),
-            property: dispatch! {fstring.context(StrContext::Label("property type"));
-                BP => byte_property.map(PropertyType::ByteProperty),
-                FP => float_property.map(PropertyType::FloatProperty),
-                _ => fail.context(StrContext::Label("unkown property")),
-            }
-        }},
+        some_property.context(StrContext::Label("data containing property")),
     ))
+    .parse_next(data)
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PropertyList<'d>(pub Vec<Property<'d>>);
+
+impl<'d> AsRef<[Property<'d>]> for PropertyList<'d> {
+    fn as_ref(&self) -> &[Property<'d>] {
+        self.0.as_ref()
+    }
+}
+
+pub fn property_list<'d>(data: &mut &'d Bytes) -> winnow::Result<PropertyList<'d>> {
+    terminated(
+        repeat(
+            1..,
+            some_property.context(StrContext::Label("data containing property")),
+        ),
+        none_property.context(StrContext::Label("terminating none property")),
+    )
+    .context(StrContext::Label("property list"))
+    .map(PropertyList)
     .parse_next(data)
 }
 
