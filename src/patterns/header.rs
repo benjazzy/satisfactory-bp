@@ -5,7 +5,13 @@ mod resource_list;
 pub use body_header::*;
 pub use recipe_list::*;
 pub use resource_list::*;
-use winnow::{Bytes, Parser, binary::le_u32, combinator::seq, error::StrContext};
+
+use winnow::{
+    Bytes, Parser,
+    binary::{bits::take, le_u32},
+    combinator::seq,
+    error::StrContext,
+};
 
 #[derive(Debug)]
 struct Header<'d> {

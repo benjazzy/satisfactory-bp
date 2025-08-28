@@ -13,6 +13,15 @@ pub struct FString<'s> {
     pub content: &'s str,
 }
 
+impl<'s> FString<'s> {
+    pub const fn new(value: &'s str) -> Self {
+        FString {
+            length: value.len() as u32,
+            content: value,
+        }
+    }
+}
+
 pub fn fstring<'d>(data: &mut &'d Bytes) -> winnow::Result<FString<'d>> {
     let length = le_u32.parse_next(data)?;
     let content = take(length).parse_next(data)?;
@@ -31,10 +40,7 @@ impl<'d> Deref for FString<'d> {
 
 impl<'d> From<&'d str> for FString<'d> {
     fn from(value: &'d str) -> Self {
-        FString {
-            length: value.len() as u32,
-            content: value,
-        }
+        FString::new(value)
     }
 }
 

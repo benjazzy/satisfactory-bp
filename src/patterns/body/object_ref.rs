@@ -1,0 +1,44 @@
+use winnow::{Bytes, Parser, combinator::seq, error::StrContext};
+
+use crate::patterns::factory_string::{FString, fstring};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ObjectRef<'d> {
+    pub level_name: FString<'d>,
+    pub path_name: FString<'d>,
+}
+
+fn object_ref<'d>(data: &mut &'d Bytes) -> winnow::Result<ObjectRef<'d>> {
+    seq! {ObjectRef {
+        level_name: fstring.context(StrContext::Label("level name")),
+        path_name: fstring.context(StrContext::Label("path name")),
+    }}
+    .parse_next(data)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_object_ref() {
+        const DATA: [u8; 0x4D] = [
+            0x11, 0x00, 0x00, 0x00, 0x50, 0x65, 0x72, 0x73, 0x69, 0x73, 0x74, 0x65, 0x6E, 0x74,
+            0x5F, 0x4C, 0x65, 0x76, 0x65, 0x6C, 0x00, 0x34, 0x00, 0x00, 0x00, 0x50, 0x65, 0x72,
+            0x73, 0x69, 0x73, 0x74, 0x65, 0x6E, 0x74, 0x5F, 0x4C, 0x65, 0x76, 0x65, 0x6C, 0x3A,
+            0x50, 0x65, 0x72, 0x73, 0x69, 0x73, 0x74, 0x65, 0x6E, 0x74, 0x4C, 0x65, 0x76, 0x65,
+            0x6C, 0x2E, 0x42, 0x75, 0x69, 0x6C, 0x64, 0x61, 0x62, 0x6C, 0x65, 0x53, 0x75, 0x62,
+            0x73, 0x79, 0x73, 0x74, 0x65, 0x6D, 0x00,
+        ];
+
+        let level = "Persistent_Level\0".into();
+        let path = "Persistent_Level:PersistentLevel.BuildableSubsystem\0".into();
+
+        let object_ref = object_ref
+            .parse((&DATA[..]).into())
+            .expect("Parse should succeed");
+
+        assert_eq!(object_ref.level_name, level);
+        assert_eq!(object_ref.path_name, path);
+    }
+}
