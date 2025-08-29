@@ -14,7 +14,7 @@ use winnow::{
 };
 
 #[derive(Debug)]
-struct Header<'d> {
+pub struct Header<'d> {
     pub maybe_header_version: u32,
     pub maybe_save_version: u32,
     pub maybe_build_version: u32,

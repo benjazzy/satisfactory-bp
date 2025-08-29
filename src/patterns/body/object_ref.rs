@@ -8,7 +8,7 @@ pub struct ObjectRef<'d> {
     pub path_name: FString<'d>,
 }
 
-fn object_ref<'d>(data: &mut &'d Bytes) -> winnow::Result<ObjectRef<'d>> {
+pub fn object_ref<'d>(data: &mut &'d Bytes) -> winnow::Result<ObjectRef<'d>> {
     seq! {ObjectRef {
         level_name: fstring.context(StrContext::Label("level name")),
         path_name: fstring.context(StrContext::Label("path name")),

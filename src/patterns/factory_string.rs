@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use winnow::error::{ContextError, ParserError};
+use winnow::error::{ContextError, ParserError, StrContext};
 
 use winnow::token::take;
 
@@ -23,8 +23,12 @@ impl<'s> FString<'s> {
 }
 
 pub fn fstring<'d>(data: &mut &'d Bytes) -> winnow::Result<FString<'d>> {
-    let length = le_u32.parse_next(data)?;
-    let content = take(length).parse_next(data)?;
+    let length = le_u32
+        .context(StrContext::Label("string length"))
+        .parse_next(data)?;
+    let content = take(length)
+        .context(StrContext::Label("string content"))
+        .parse_next(data)?;
     let content = str::from_utf8(content).map_err(|_| ContextError::from_input(data))?;
 
     Ok(FString { length, content })
