@@ -21,7 +21,7 @@ fn main() {
         .parse_next(data)
         .expect("header parse should succeed");
 
-    println!("Header: {header:?}\n");
+    println!("Header: {header:#?}\n");
 
     let rest: &[u8] = data;
 
@@ -35,5 +35,5 @@ fn main() {
         .parse(compressed_body.as_slice().into())
         .expect("body parse should succeed");
 
-    println!("Body: {body:?}\n");
+    println!("Body: {body:#?}\n");
 }
