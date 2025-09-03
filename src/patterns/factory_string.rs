@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::io::Write;
 
 use winnow::error::{ContextError, ParserError, StrContext};
 
@@ -9,16 +9,23 @@ use winnow::{Bytes, Parser};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FString<'s> {
-    pub length: u32,
     pub content: &'s str,
 }
 
 impl<'s> FString<'s> {
     pub const fn new(value: &'s str) -> Self {
-        FString {
-            length: value.len() as u32,
-            content: value,
-        }
+        FString { content: value }
+    }
+
+    pub const fn len(&self) -> usize {
+        self.content.len()
+    }
+
+    pub fn write<W: Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
+        let len: u32 = self.len().try_into().expect("Factory String is too long");
+
+        writer.write_all(len.to_le_bytes().as_slice())?;
+        writer.write_all(self.content.as_bytes())
     }
 }
 
@@ -31,13 +38,11 @@ pub fn fstring<'d>(data: &mut &'d Bytes) -> winnow::Result<FString<'d>> {
         .parse_next(data)?;
     let content = str::from_utf8(content).map_err(|_| ContextError::from_input(data))?;
 
-    Ok(FString { length, content })
+    Ok(FString { content })
 }
 
-impl<'d> Deref for FString<'d> {
-    type Target = str;
-
-    fn deref(&self) -> &'d Self::Target {
+impl AsRef<str> for FString<'_> {
+    fn as_ref(&self) -> &str {
         self.content
     }
 }
@@ -66,7 +71,14 @@ pub(crate) mod test {
             "/Game/FactoryGame/Resource/Parts/SteelPlate/Desc_SteelPlate.Desc_SteelPlate_C\0";
 
         let factory_string = fstring(&mut Bytes::new(&DATA[..])).expect("Parser should succeed");
-        assert_eq!(factory_string.length as usize, DATA.len() - 4);
+        assert_eq!(factory_string.len(), DATA.len() - 4);
         assert_eq!(factory_string.content, STRING);
+
+        let mut buf = Vec::new();
+        factory_string
+            .write(&mut buf)
+            .expect("Serialization should succeed");
+
+        assert_eq!(buf, DATA);
     }
 }
