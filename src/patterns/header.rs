@@ -2,16 +2,15 @@ mod body_header;
 mod recipe_list;
 mod resource_list;
 
+use std::io::Write;
+
 pub use body_header::*;
 pub use recipe_list::*;
 pub use resource_list::*;
 
-use winnow::{
-    Bytes, Parser,
-    binary::{bits::take, le_u32},
-    combinator::seq,
-    error::StrContext,
-};
+use winnow::{Bytes, Parser, binary::le_u32, combinator::seq, error::StrContext};
+
+use crate::bp_write::BPWrite;
 
 #[derive(Debug)]
 pub struct Header<'d> {
@@ -22,6 +21,20 @@ pub struct Header<'d> {
     pub resource_list: ResourceList<'d>,
     pub recipie_list: RecipeList<'d>,
     pub body_header: BodyHeader,
+}
+
+impl<W: Write> BPWrite<W> for &Header<'_> {
+    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
+        self.maybe_header_version.bp_write(writer)?;
+        self.maybe_save_version.bp_write(writer)?;
+        self.maybe_build_version.bp_write(writer)?;
+        for size in self.blueprint_size {
+            size.bp_write(writer)?;
+        }
+        self.resource_list.bp_write(writer)?;
+        self.recipie_list.bp_write(writer)?;
+        self.body_header.bp_write(writer)
+    }
 }
 
 pub fn header<'d>(data: &mut &'d Bytes) -> winnow::Result<Header<'d>> {
@@ -96,7 +109,12 @@ mod tests {
         assert_eq!(header.maybe_save_version, 46);
         assert_eq!(header.maybe_build_version, 368883);
         assert_eq!(header.blueprint_size, [5, 5, 5]);
-        assert_eq!(header.resource_list.length, 3);
-        assert_eq!(header.recipie_list.count, 2);
+        assert_eq!(header.resource_list.resources.len(), 3);
+        assert_eq!(header.recipie_list.recipies.len(), 2);
+
+        let mut buf = Vec::new();
+        header.bp_write(&mut buf).expect("Write should succeed");
+
+        assert_eq!(buf, DATA);
     }
 }

@@ -7,6 +7,8 @@ use winnow::token::take;
 use winnow::binary::le_u32;
 use winnow::{Bytes, Parser};
 
+use crate::bp_write::BPWrite;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FString<'s> {
     pub content: &'s str,
@@ -20,8 +22,10 @@ impl<'s> FString<'s> {
     pub const fn len(&self) -> usize {
         self.content.len()
     }
+}
 
-    pub fn write<W: Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
+impl<W: Write> BPWrite<W> for &FString<'_> {
+    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
         let len: u32 = self.len().try_into().expect("Factory String is too long");
 
         writer.write_all(len.to_le_bytes().as_slice())?;
@@ -76,7 +80,7 @@ pub(crate) mod test {
 
         let mut buf = Vec::new();
         factory_string
-            .write(&mut buf)
+            .bp_write(&mut buf)
             .expect("Serialization should succeed");
 
         assert_eq!(buf, DATA);

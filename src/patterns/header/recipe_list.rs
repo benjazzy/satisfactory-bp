@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use winnow::{
     Bytes, Parser,
     binary::le_u32,
@@ -5,23 +7,48 @@ use winnow::{
     error::StrContext,
 };
 
-use crate::patterns::factory_string::{FString, fstring};
+use crate::{
+    bp_write::BPWrite,
+    patterns::factory_string::{FString, fstring},
+};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Recipe<'d>(pub FString<'d>);
+
+impl<W: Write> BPWrite<W> for &Recipe<'_> {
+    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
+        [0x00; 4].bp_write(writer)?;
+        self.0.bp_write(writer)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RecipeList<'d> {
-    pub count: u32,
-    pub recipies: Vec<FString<'d>>,
+    pub recipies: Vec<Recipe<'d>>,
+}
+
+impl<W: Write> BPWrite<W> for &RecipeList<'_> {
+    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
+        let count: u32 = self
+            .recipies
+            .len()
+            .try_into()
+            .expect("Recipies length is too long");
+        count.bp_write(writer)?;
+
+        self.recipies.bp_write(writer)
+    }
 }
 
 pub fn recipe_list<'d>(data: &mut &'d Bytes) -> winnow::Result<RecipeList<'d>> {
     let count = le_u32
         .context(StrContext::Label("recipie list length"))
         .parse_next(data)?;
-    let recipies = repeat(count as usize, preceded(&[0x00; 4], fstring))
+    let recipies = repeat(count as usize, preceded(&[0x00; 4], fstring.map(Recipe)))
         .context(StrContext::Label("recipe path"))
         .parse_next(data)?;
 
-    Ok(RecipeList { count, recipies })
+    Ok(RecipeList { recipies })
 }
 
 #[cfg(test)]
@@ -47,16 +74,21 @@ mod tests {
             0x5F, 0x30, 0x31, 0x5F, 0x43, 0x00,
         ];
 
-        let first: FString = "/Game/FactoryGame/Prototype/Buildable/Beams/Recipe_Beam_Painted.Recipe_Beam_Painted_C\0".into();
-        let second: FString =
+        let first = Recipe("/Game/FactoryGame/Prototype/Buildable/Beams/Recipe_Beam_Painted.Recipe_Beam_Painted_C\0".into());
+        let second = Recipe(
             "/Game/FactoryGame/Recipes/Buildings/Walls/Recipe_Wall_8x4_01.Recipe_Wall_8x4_01_C\0"
-                .into();
+                .into(),
+        );
 
         let recipies = recipe_list
             .parse((&DATA[..]).into())
             .expect("Parser should succeed");
 
-        assert_eq!(recipies.count, 2);
         assert_eq!(recipies.recipies, &[first, second]);
+
+        let mut buf = Vec::new();
+        recipies.bp_write(&mut buf).expect("Write should succeed");
+
+        assert_eq!(buf, DATA);
     }
 }

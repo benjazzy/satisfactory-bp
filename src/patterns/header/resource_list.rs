@@ -1,11 +1,24 @@
+use std::io::Write;
+
 use winnow::{Bytes, Parser, binary::le_u32, combinator::preceded};
 
-use crate::patterns::factory_string::{FString, fstring};
+use crate::{
+    bp_write::BPWrite,
+    patterns::factory_string::{FString, fstring},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceList<'d> {
-    pub length: u32,
     pub resources: Vec<Resource<'d>>,
+}
+
+impl<W: Write> BPWrite<W> for &ResourceList<'_> {
+    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
+        let length: u32 = self.resources.len().try_into().expect("Too many resources");
+        length.bp_write(writer)?;
+
+        self.resources.bp_write(writer)
+    }
 }
 
 pub fn resource_list<'d>(data: &mut &'d Bytes) -> winnow::Result<ResourceList<'d>> {
@@ -14,13 +27,22 @@ pub fn resource_list<'d>(data: &mut &'d Bytes) -> winnow::Result<ResourceList<'d
         .flat_map(|_| resource.parse_next(data))
         .collect::<Vec<_>>();
 
-    Ok(ResourceList { length, resources })
+    Ok(ResourceList { resources })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Resource<'d> {
     pub path: FString<'d>,
     pub count: u32,
+}
+
+impl<W: Write> BPWrite<W> for &Resource<'_> {
+    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
+        [0x00; 4].bp_write(writer)?;
+        self.path.bp_write(writer)?;
+
+        writer.write_all(self.count.to_le_bytes().as_slice())
+    }
 }
 
 pub fn resource<'d>(data: &mut &'d Bytes) -> winnow::Result<Resource<'d>> {
@@ -55,6 +77,11 @@ mod tests {
                 .into()
         );
         assert_eq!(resource.count, 2);
+
+        let mut buf = Vec::new();
+        resource.bp_write(&mut buf).expect("Write should succeed");
+
+        assert_eq!(buf, DATA);
     }
 
     #[test]
@@ -82,7 +109,6 @@ mod tests {
         ];
 
         let list = ResourceList {
-            length: 3,
             resources: vec![
                 Resource { path: "/Game/FactoryGame/Resource/Parts/SteelPlate/Desc_SteelPlate.Desc_SteelPlate_C\0".into(), count: 2 },
                 Resource { path: "/Game/FactoryGame/Resource/Parts/IronPlate/Desc_IronPlate.Desc_IronPlate_C\0".into(), count: 2 },
@@ -95,5 +121,10 @@ mod tests {
             .expect("Parser should succeed");
 
         assert_eq!(resources, list);
+
+        let mut buf = Vec::new();
+        resources.bp_write(&mut buf).expect("Write should succeed");
+
+        assert_eq!(buf, DATA);
     }
 }

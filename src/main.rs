@@ -5,6 +5,7 @@ use winnow::{Bytes, Parser};
 
 use crate::patterns::{body::blueprint_body, header::header};
 
+mod bp_write;
 mod patterns;
 
 fn main() {

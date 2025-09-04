@@ -1,9 +1,13 @@
+use std::io::Write;
+
 use winnow::{
     Bytes, Parser,
     binary::{le_u32, le_u64},
-    combinator::{alt, fail, preceded, seq},
-    error::{ContextError, StrContext},
+    combinator::{alt, fail, seq},
+    error::StrContext,
 };
+
+use crate::bp_write::BPWrite;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BodyHeaderVersion {
@@ -11,14 +15,27 @@ pub enum BodyHeaderVersion {
     V2,
 }
 
-pub fn body_header_version(data: &mut &Bytes) -> winnow::Result<BodyHeaderVersion> {
-    const V1: &[u8] = &[0x00; 4];
-    const V2: &[u8] = &[0x22; 4];
+impl BodyHeaderVersion {
+    const V1BYTES: &[u8] = &[0x00; 4];
+    const V2BYTES: &[u8] = &[0x22; 4];
+}
 
+impl<W: Write> BPWrite<W> for BodyHeaderVersion {
+    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
+        match self {
+            Self::V1 => Self::V1BYTES.bp_write(writer),
+            Self::V2 => Self::V2BYTES.bp_write(writer),
+        }
+    }
+}
+
+pub fn body_header_version(data: &mut &Bytes) -> winnow::Result<BodyHeaderVersion> {
     alt((
-        V1.map(|_| BodyHeaderVersion::V1)
+        BodyHeaderVersion::V1BYTES
+            .map(|_| BodyHeaderVersion::V1)
             .context(StrContext::Label("Version 1")),
-        V2.map(|_| BodyHeaderVersion::V2)
+        BodyHeaderVersion::V2BYTES
+            .map(|_| BodyHeaderVersion::V2)
             .context(StrContext::Label("Version 2")),
         fail.context(StrContext::Label("Did not match V1 or V2")),
     ))
@@ -33,8 +50,31 @@ pub struct BodyHeader {
     pub uncompressed_size: u64,
 }
 
+impl BodyHeader {
+    const MAGIC_NUM: u32 = 0x9E2A83C1;
+}
+
+impl<W: Write> BPWrite<W> for &BodyHeader {
+    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
+        BodyHeader::MAGIC_NUM.bp_write(writer)?;
+        self.header_version.bp_write(writer)?;
+        self.max_chunk_size.bp_write(writer)?;
+
+        // Padding
+        [0u8].bp_write(writer)?;
+        0x03000000u32.bp_write(writer)?;
+
+        for _ in 0..2 {
+            self.compressed_size.bp_write(writer)?;
+            self.uncompressed_size.bp_write(writer)?;
+        }
+
+        Ok(())
+    }
+}
+
 pub fn body_header(data: &mut &Bytes) -> winnow::Result<BodyHeader> {
-    const MAGIC_NUMBER: &[u8] = 0x9E2A83C1_u32.to_le_bytes().as_slice();
+    const MAGIC_NUMBER: &[u8] = BodyHeader::MAGIC_NUM.to_le_bytes().as_slice();
     const PADDING: &[u8] = &[0x00, 0x00, 0x00, 0x00, 0x03];
 
     let body_header = seq! {BodyHeader {
@@ -103,5 +143,12 @@ mod tests {
             .expect("Parse should succeed");
 
         assert_eq!(body_header, CORRECT);
+
+        let mut buf = Vec::new();
+        body_header
+            .bp_write(&mut buf)
+            .expect("Write should succeed");
+
+        assert_eq!(buf, DATA);
     }
 }
