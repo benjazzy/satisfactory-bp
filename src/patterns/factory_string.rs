@@ -22,6 +22,12 @@ impl<'s> FString<'s> {
     pub const fn len(&self) -> usize {
         self.content.len()
     }
+
+    pub fn size(&self) -> u32 {
+        (self.len() + 4)
+            .try_into()
+            .expect("Factory string too long")
+    }
 }
 
 impl<W: Write> BPWrite<W> for &FString<'_> {

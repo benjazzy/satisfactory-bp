@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use winnow::{
     Bytes, Parser,
     binary::{le_f32, le_u32},
@@ -5,7 +7,10 @@ use winnow::{
     error::StrContext,
 };
 
-use crate::patterns::factory_string::{FString, fstring};
+use crate::{
+    bp_write::BPWrite,
+    patterns::factory_string::{FString, fstring},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ActorHeader<'d> {
@@ -23,6 +28,27 @@ pub struct ActorHeader<'d> {
     pub scale_x: f32,
     pub scale_y: f32,
     pub scale_z: f32,
+}
+
+impl<W: Write> BPWrite<W> for &ActorHeader<'_> {
+    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
+        self.type_path.bp_write(writer)?;
+        self.root_object.bp_write(writer)?;
+        self.instance_name.bp_write(writer)?;
+        self.unknown.bp_write(writer)?;
+        self.rotation_x.bp_write(writer)?;
+        self.rotation_y.bp_write(writer)?;
+        self.rotation_z.bp_write(writer)?;
+        self.rotation_w.bp_write(writer)?;
+        self.position_x.bp_write(writer)?;
+        self.position_y.bp_write(writer)?;
+        self.position_z.bp_write(writer)?;
+        self.scale_x.bp_write(writer)?;
+        self.scale_y.bp_write(writer)?;
+        self.scale_z.bp_write(writer)?;
+
+        [0u8; 4].bp_write(writer)
+    }
 }
 
 pub fn actor_header<'d>(data: &mut &'d Bytes) -> winnow::Result<ActorHeader<'d>> {
@@ -98,5 +124,12 @@ mod tests {
             .expect("Parse should succeed");
 
         assert_eq!(actor_header, correct);
+
+        let mut buf = Vec::new();
+        actor_header
+            .bp_write(&mut buf)
+            .expect("Write should succeed");
+
+        assert_eq!(buf, DATA);
     }
 }

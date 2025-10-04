@@ -17,7 +17,7 @@ pub struct Recipe<'d>(pub FString<'d>);
 
 impl<W: Write> BPWrite<W> for &Recipe<'_> {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
-        [0x00; 4].bp_write(writer)?;
+        [0u8; 4].bp_write(writer)?;
         self.0.bp_write(writer)
     }
 }

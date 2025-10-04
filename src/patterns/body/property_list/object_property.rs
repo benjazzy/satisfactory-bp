@@ -1,11 +1,32 @@
+use std::io::Write;
+
 use winnow::{Bytes, Parser, binary::le_u32, combinator::seq, error::StrContext};
 
-use crate::patterns::factory_string::{FString, fstring};
+use crate::{
+    bp_write::BPWrite,
+    patterns::factory_string::{FString, fstring},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ObjectProperty<'d> {
     pub index: u32,
     pub reference: FString<'d>,
+}
+
+impl ObjectProperty<'_> {
+    pub fn size(&self) -> u32 {
+        self.reference.size() + 13
+    }
+}
+
+impl<W: Write> BPWrite<W> for ObjectProperty<'_> {
+    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
+        let size = self.reference.size() + 4;
+        size.bp_write(writer)?;
+        self.index.bp_write(writer)?;
+        [0u8; 5].bp_write(writer)?;
+        self.reference.bp_write(writer)
+    }
 }
 
 pub fn object_property<'d>(data: &mut &'d Bytes) -> winnow::Result<ObjectProperty<'d>> {
@@ -44,5 +65,11 @@ mod tests {
             prop.reference.content,
             "/Game/FactoryGame/Prototype/Buildable/Beams/Recipe_Beam_Painted.Recipe_Beam_Painted_C\0"
         );
+        assert_eq!(prop.size() as usize, DATA.len());
+
+        let mut buf = Vec::new();
+        prop.bp_write(&mut buf).expect("Write should succeed");
+
+        assert_eq!(buf, DATA);
     }
 }

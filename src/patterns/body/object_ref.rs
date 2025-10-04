@@ -1,11 +1,29 @@
+use std::io::Write;
+
 use winnow::{Bytes, Parser, combinator::seq, error::StrContext};
 
-use crate::patterns::factory_string::{FString, fstring};
+use crate::{
+    bp_write::BPWrite,
+    patterns::factory_string::{FString, fstring},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ObjectRef<'d> {
     pub level_name: FString<'d>,
     pub path_name: FString<'d>,
+}
+
+impl ObjectRef<'_> {
+    pub fn size(&self) -> u32 {
+        self.level_name.size() + self.path_name.size()
+    }
+}
+
+impl<W: Write> BPWrite<W> for &ObjectRef<'_> {
+    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
+        self.level_name.bp_write(writer)?;
+        self.path_name.bp_write(writer)
+    }
 }
 
 pub fn object_ref<'d>(data: &mut &'d Bytes) -> winnow::Result<ObjectRef<'d>> {
@@ -40,5 +58,10 @@ mod tests {
 
         assert_eq!(object_ref.level_name, level);
         assert_eq!(object_ref.path_name, path);
+
+        let mut buf = Vec::new();
+        object_ref.bp_write(&mut buf).expect("Write should succeed");
+
+        assert_eq!(buf, DATA);
     }
 }

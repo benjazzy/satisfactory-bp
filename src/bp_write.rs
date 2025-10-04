@@ -29,10 +29,25 @@ pub trait BPWrite<W: Write> {
 //     }
 // }
 
-impl<W, T> BPWrite<W> for &Vec<T>
+// impl<W, T> BPWrite<W> for &Vec<T>
+// where
+//     W: Write,
+//     for<'a> &'a T: BPWrite<W>,
+// {
+//     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
+//         for item in self {
+//             item.bp_write(writer)?;
+//         }
+//
+//         Ok(())
+//     }
+// }
+
+impl<W, I> BPWrite<W> for &I
 where
     W: Write,
-    for<'a> &'a T: BPWrite<W>,
+    for<'a> &'a I: IntoIterator,
+    for<'a> <&'a I as IntoIterator>::Item: BPWrite<W>,
 {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
         for item in self {
@@ -52,6 +67,18 @@ impl<W: Write> BPWrite<W> for u32 {
 impl<W: Write> BPWrite<W> for u64 {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
         writer.write_all(self.to_le_bytes().as_slice())
+    }
+}
+
+impl<W: Write> BPWrite<W> for f32 {
+    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
+        writer.write_all(self.to_le_bytes().as_slice())
+    }
+}
+
+impl<W: Write> BPWrite<W> for u8 {
+    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
+        writer.write_all(&[self])
     }
 }
 

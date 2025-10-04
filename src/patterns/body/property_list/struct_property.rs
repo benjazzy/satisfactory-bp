@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use winnow::{
     Bytes, Parser,
     binary::{le_f32, le_u32},
@@ -5,15 +7,51 @@ use winnow::{
     error::StrContext,
 };
 
-use crate::patterns::{
-    body::property_list::{PropertyList, property_list},
-    factory_string::{FString, fstring},
+use crate::{
+    bp_write::BPWrite,
+    patterns::{
+        body::property_list::{PropertyList, property_list},
+        factory_string::{FString, fstring},
+    },
 };
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum StructDataType<'d> {
     LinearColor(LinearColor),
-    Other(PropertyList<'d>),
+    Other {
+        name: FString<'d>,
+        list: PropertyList<'d>,
+    },
+}
+
+impl StructDataType<'_> {
+    const LC: FString<'static> = FString::new("LinearColor\0");
+
+    pub fn size(&self) -> u32 {
+        match self {
+            StructDataType::LinearColor(_) => 16,
+            StructDataType::Other { name, list } => name.size() + list.size() + 16,
+        }
+    }
+}
+
+impl<W: Write> BPWrite<W> for &StructDataType<'_> {
+    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
+        match self {
+            StructDataType::LinearColor(linear_color) => {
+                StructDataType::LC.bp_write(writer)?;
+                [0; 17].bp_write(writer)?;
+                linear_color.bp_write(writer)?;
+            }
+            StructDataType::Other { name, list } => {
+                name.bp_write(writer)?;
+                [0; 17].bp_write(writer)?;
+                list.bp_write(writer)?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -22,6 +60,15 @@ pub struct LinearColor {
     pub g: f32,
     pub b: f32,
     pub a: f32,
+}
+
+impl<W: Write> BPWrite<W> for &LinearColor {
+    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
+        self.r.bp_write(writer)?;
+        self.g.bp_write(writer)?;
+        self.b.bp_write(writer)?;
+        self.a.bp_write(writer)
+    }
 }
 
 pub fn linear_color(data: &mut &Bytes) -> winnow::Result<LinearColor> {
@@ -40,15 +87,27 @@ pub struct StructProperty<'d> {
     pub data: StructDataType<'d>,
 }
 
-pub fn struct_property<'d>(data: &mut &'d Bytes) -> winnow::Result<StructProperty<'d>> {
-    const LC: FString = FString::new("LinearColor\0");
+impl StructProperty<'_> {
+    pub fn size(&self) -> u32 {
+        self.data.size() + 25
+    }
+}
 
+impl<W: Write> BPWrite<W> for &StructProperty<'_> {
+    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
+        self.data.size().bp_write(writer)?;
+        self.index.bp_write(writer)?;
+        self.data.bp_write(writer)
+    }
+}
+
+pub fn struct_property<'d>(data: &mut &'d Bytes) -> winnow::Result<StructProperty<'d>> {
     seq! {StructProperty {
         _: le_u32,
         index: le_u32.context(StrContext::Label("struct property index")),
         data: dispatch! {terminated(fstring, &[0; 17]);
-            LC => linear_color.map(StructDataType::LinearColor).context(StrContext::Label("linear color data")),
-            _ => property_list.map(StructDataType::Other).context(StrContext::Label("property list data")),
+            StructDataType::LC => linear_color.map(StructDataType::LinearColor).context(StrContext::Label("linear color data")),
+            name => property_list.map(|list| StructDataType::Other { name, list }).context(StrContext::Label("property list data")),
         },
     }}.parse_next(data)
 }
@@ -90,5 +149,10 @@ mod tests {
 
         assert_eq!(prop.index, 0);
         assert!(matches!(prop.data, StructDataType::LinearColor(_)));
+
+        let mut buf = Vec::new();
+        prop.bp_write(&mut buf).expect("Write should succeed");
+
+        assert_eq!(buf, DATA);
     }
 }

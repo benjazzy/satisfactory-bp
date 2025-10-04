@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use winnow::{
     Bytes, Parser,
     binary::{le_f32, le_u32},
@@ -5,10 +7,21 @@ use winnow::{
     error::StrContext,
 };
 
+use crate::bp_write::BPWrite;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct FloatProperty {
     pub index: u32,
     pub value: f32,
+}
+
+impl<W: Write> BPWrite<W> for FloatProperty {
+    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
+        4u32.bp_write(writer)?;
+        self.index.bp_write(writer)?;
+        0u8.bp_write(writer)?;
+        self.value.bp_write(writer)
+    }
 }
 
 pub fn float_property(data: &mut &Bytes) -> winnow::Result<FloatProperty> {
@@ -37,5 +50,10 @@ mod tests {
             .expect("Parse should succeed");
         assert_eq!(prop.index, 0);
         assert_eq!(prop.value, 100.0);
+
+        let mut buf = Vec::new();
+        prop.bp_write(&mut buf).expect("Write should succeed");
+
+        assert_eq!(buf, DATA);
     }
 }
