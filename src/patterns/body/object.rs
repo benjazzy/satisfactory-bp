@@ -19,7 +19,7 @@ impl ObjectType<'_> {
     pub fn size(&self) -> u32 {
         match self {
             ObjectType::Actor(actor) => actor.size(),
-            ObjectType::Component => unimplemented!()
+            ObjectType::Component => unimplemented!(),
         }
     }
 }
@@ -28,7 +28,7 @@ impl<W: Write> BPWrite<W> for &ObjectType<'_> {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
         match self {
             ObjectType::Actor(actor) => actor.bp_write(writer),
-            ObjectType::Component => unimplemented!()
+            ObjectType::Component => unimplemented!(),
         }
     }
 }

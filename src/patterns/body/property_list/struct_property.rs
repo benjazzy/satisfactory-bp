@@ -45,7 +45,7 @@ impl StructDataType<'_> {
                 let write = |writer: &mut W| list.bp_write(writer);
 
                 (size, *name, Box::new(write))
-            },
+            }
         }
     }
 }

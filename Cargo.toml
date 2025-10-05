@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 winnow = "0.7"
 flate2 = "1.0.34"
+color-eyre = "0.6.5"

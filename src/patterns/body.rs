@@ -3,18 +3,18 @@ mod object_header;
 mod object_ref;
 mod property_list;
 
-use std::io::{Error, Write};
+use crate::bp_write::BPWrite;
 pub use object::*;
 pub use object_header::*;
 pub use object_ref::*;
 pub use property_list::*;
+use std::io::{Error, Write};
 use winnow::{
     Bytes, Parser,
     binary::le_u32,
     combinator::{repeat, seq},
     error::StrContext,
 };
-use crate::bp_write::BPWrite;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlueprintBody<'d> {
@@ -39,11 +39,20 @@ pub fn blueprint_body<'d>(data: &mut &'d Bytes) -> winnow::Result<BlueprintBody<
     .parse_next(data)
 }
 
-impl<W: Write> BPWrite<W> for BlueprintBody<'_> {
+impl<W: Write> BPWrite<W> for &BlueprintBody<'_> {
     fn bp_write(self, writer: &mut W) -> Result<(), Error> {
         // Size includes count
-        let headers_size: u32 = self.object_headers.iter().map(|h| dbg!(h.size())).sum::<u32>() + 4;
-        let headers_count: u32 = self.object_headers.len().try_into().expect("Headers too long");
+        let headers_size: u32 = self
+            .object_headers
+            .iter()
+            .map(|h| dbg!(h.size()))
+            .sum::<u32>()
+            + 4;
+        let headers_count: u32 = self
+            .object_headers
+            .len()
+            .try_into()
+            .expect("Headers too long");
 
         // Size includes count
         let objects_size: u32 = self.objects.iter().map(ObjectType::size).sum::<u32>() + 4;
