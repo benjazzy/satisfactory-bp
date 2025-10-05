@@ -30,17 +30,17 @@ pub enum PropertyType<'d> {
     None,
 }
 
-impl PropertyType<'_> {
-    pub fn size(&self) -> u32 {
-        match self {
-            PropertyType::ByteProperty(byte_property) => byte_property.size(),
-            PropertyType::FloatProperty(_) => 13 + Property::FP.len() as u32,
-            PropertyType::ObjectProperty(object_property) => object_property.size(),
-            PropertyType::StructProperty(struct_property) => struct_property.size(),
-            PropertyType::None => 0,
-        }
-    }
-}
+// impl PropertyType<'_> {
+//     pub fn size(&self) -> u32 {
+//         match self {
+//             PropertyType::ByteProperty(byte_property) => byte_property.size(),
+//             PropertyType::FloatProperty(_) => 13 + Property::FP.len() as u32,
+//             PropertyType::ObjectProperty(object_property) => object_property.size(),
+//             PropertyType::StructProperty(struct_property) => struct_property.size(),
+//             PropertyType::None => 0,
+//         }
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Property<'d> {
@@ -61,9 +61,19 @@ impl Property<'_> {
 
     pub fn size(&self) -> u32 {
         let name_size = self.name.size();
-        let prop_size = self.property.size();
+        let type_size = match &self.property {
+            PropertyType::ByteProperty(byte_property) => byte_property.size() + Self::BP.size(),
+            PropertyType::FloatProperty(_) => 13 + Self::FP.size(),
+            PropertyType::ObjectProperty(object_property) => {
+                object_property.size() + Self::OP.size()
+            }
+            PropertyType::StructProperty(struct_property) => {
+                struct_property.size() + Self::SP.size()
+            }
+            PropertyType::None => 0,
+        };
 
-        name_size + prop_size
+        name_size + type_size
     }
 }
 
@@ -130,7 +140,7 @@ pub struct PropertyList<'d>(pub Vec<Property<'d>>);
 
 impl PropertyList<'_> {
     pub fn size(&self) -> u32 {
-        self.0.iter().map(Property::size).sum::<u32>() + Property::NONE_PROPERTY.size()
+        self.0.iter().map(|p| p.size()).sum::<u32>() + Property::NONE_PROPERTY.size()
     }
 }
 

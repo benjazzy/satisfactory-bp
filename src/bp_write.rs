@@ -1,3 +1,4 @@
+use crate::patterns::factory_string::FString;
 use std::{io::Write, ops::Deref};
 
 pub trait BPWrite<W: Write> {

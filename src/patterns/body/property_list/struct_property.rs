@@ -25,34 +25,60 @@ pub enum StructDataType<'d> {
 }
 
 impl StructDataType<'_> {
-    const LC: FString<'static> = FString::new("LinearColor\0");
-
-    pub fn size(&self) -> u32 {
+    pub fn get_writable<'s, W: Write>(
+        &'s self,
+    ) -> (
+        u32,
+        FString<'s>,
+        Box<dyn FnOnce(&mut W) -> Result<(), std::io::Error> + 's>,
+    ) {
         match self {
-            StructDataType::LinearColor(_) => 16,
-            StructDataType::Other { name, list } => name.size() + list.size() + 16,
-        }
-    }
-}
+            StructDataType::LinearColor(lc) => {
+                let size = 16;
+                let name = StructProperty::LC;
+                let write = |writer: &mut W| lc.bp_write(writer);
 
-impl<W: Write> BPWrite<W> for &StructDataType<'_> {
-    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
-        match self {
-            StructDataType::LinearColor(linear_color) => {
-                StructDataType::LC.bp_write(writer)?;
-                [0; 17].bp_write(writer)?;
-                linear_color.bp_write(writer)?;
+                (size, name, Box::new(write))
             }
             StructDataType::Other { name, list } => {
-                name.bp_write(writer)?;
-                [0; 17].bp_write(writer)?;
-                list.bp_write(writer)?;
-            }
-        }
+                let size = list.size();
+                let write = |writer: &mut W| list.bp_write(writer);
 
-        Ok(())
+                (size, *name, Box::new(write))
+            },
+        }
     }
 }
+
+// impl StructDataType<'_> {
+//     const LC: FString<'static> = FString::new("LinearColor\0");
+//
+//     pub fn size(&self) -> u32 {
+//         match self {
+//             StructDataType::LinearColor(_) => 16,
+//             StructDataType::Other { name, list } => name.size() + list.size() + 16,
+//         }
+//     }
+// }
+
+// impl<W: Write> BPWrite<W> for &StructDataType<'_> {
+//     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
+//         match self {
+//             StructDataType::LinearColor(linear_color) => {
+//                 StructDataType::LC.bp_write(writer)?;
+//                 [0; 17].bp_write(writer)?;
+//                 linear_color.bp_write(writer)?;
+//             }
+//             StructDataType::Other { name, list } => {
+//                 name.bp_write(writer)?;
+//                 [0; 17].bp_write(writer)?;
+//                 list.bp_write(writer)?;
+//             }
+//         }
+//
+//         Ok(())
+//     }
+// }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LinearColor {
@@ -88,16 +114,27 @@ pub struct StructProperty<'d> {
 }
 
 impl StructProperty<'_> {
+    const LC: FString<'static> = FString::new("LinearColor\0");
+
     pub fn size(&self) -> u32 {
-        self.data.size() + 25
+        let data_size = match &self.data {
+            StructDataType::LinearColor(_) => 16 + Self::LC.size(),
+            StructDataType::Other { name, list } => name.size() + list.size(),
+        };
+
+        data_size + 25
     }
 }
 
 impl<W: Write> BPWrite<W> for &StructProperty<'_> {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
-        self.data.size().bp_write(writer)?;
+        let (data_size, data_name, write_data) = self.data.get_writable();
+
+        data_size.bp_write(writer)?;
         self.index.bp_write(writer)?;
-        self.data.bp_write(writer)
+        data_name.bp_write(writer)?;
+        [0u8; 17].bp_write(writer)?;
+        write_data(writer)
     }
 }
 
@@ -106,7 +143,7 @@ pub fn struct_property<'d>(data: &mut &'d Bytes) -> winnow::Result<StructPropert
         _: le_u32,
         index: le_u32.context(StrContext::Label("struct property index")),
         data: dispatch! {terminated(fstring, &[0; 17]);
-            StructDataType::LC => linear_color.map(StructDataType::LinearColor).context(StrContext::Label("linear color data")),
+            StructProperty::LC => linear_color.map(StructDataType::LinearColor).context(StrContext::Label("linear color data")),
             name => property_list.map(|list| StructDataType::Other { name, list }).context(StrContext::Label("property list data")),
         },
     }}.parse_next(data)
@@ -149,10 +186,42 @@ mod tests {
 
         assert_eq!(prop.index, 0);
         assert!(matches!(prop.data, StructDataType::LinearColor(_)));
+        assert_eq!(prop.size() as usize, DATA.len());
 
         let mut buf = Vec::new();
         prop.bp_write(&mut buf).expect("Write should succeed");
 
+        assert_eq!(buf, DATA);
+    }
+
+    #[test]
+    fn check_struct_property_other() {
+        const DATA: [u8; 0xD1] = [
+            0x9B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x19, 0x00, 0x00, 0x00, 0x46, 0x61,
+            0x63, 0x74, 0x6F, 0x72, 0x79, 0x43, 0x75, 0x73, 0x74, 0x6F, 0x6D, 0x69, 0x7A, 0x61,
+            0x74, 0x69, 0x6F, 0x6E, 0x44, 0x61, 0x74, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0B, 0x00,
+            0x00, 0x00, 0x53, 0x77, 0x61, 0x74, 0x63, 0x68, 0x44, 0x65, 0x73, 0x63, 0x00, 0x0F,
+            0x00, 0x00, 0x00, 0x4F, 0x62, 0x6A, 0x65, 0x63, 0x74, 0x50, 0x72, 0x6F, 0x70, 0x65,
+            0x72, 0x74, 0x79, 0x00, 0x67, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x5F, 0x00, 0x00, 0x00, 0x2F, 0x47, 0x61, 0x6D, 0x65, 0x2F, 0x46,
+            0x61, 0x63, 0x74, 0x6F, 0x72, 0x79, 0x47, 0x61, 0x6D, 0x65, 0x2F, 0x42, 0x75, 0x69,
+            0x6C, 0x64, 0x61, 0x62, 0x6C, 0x65, 0x2F, 0x2D, 0x53, 0x68, 0x61, 0x72, 0x65, 0x64,
+            0x2F, 0x43, 0x75, 0x73, 0x74, 0x6F, 0x6D, 0x69, 0x7A, 0x61, 0x74, 0x69, 0x6F, 0x6E,
+            0x2F, 0x53, 0x77, 0x61, 0x74, 0x63, 0x68, 0x65, 0x73, 0x2F, 0x53, 0x77, 0x61, 0x74,
+            0x63, 0x68, 0x44, 0x65, 0x73, 0x63, 0x5F, 0x53, 0x6C, 0x6F, 0x74, 0x30, 0x2E, 0x53,
+            0x77, 0x61, 0x74, 0x63, 0x68, 0x44, 0x65, 0x73, 0x63, 0x5F, 0x53, 0x6C, 0x6F, 0x74,
+            0x30, 0x5F, 0x43, 0x00, 0x05, 0x00, 0x00, 0x00, 0x4E, 0x6F, 0x6E, 0x65, 0x00,
+        ];
+
+        let prop = struct_property
+            .parse(DATA.as_slice().into())
+            .expect("Parse should succeed");
+        assert!(matches!(prop.data, StructDataType::Other { .. }));
+        assert_eq!(prop.size() as usize, DATA.len());
+
+        let mut buf = Vec::new();
+        prop.bp_write(&mut buf).expect("Write should succeed");
         assert_eq!(buf, DATA);
     }
 }

@@ -32,7 +32,7 @@ impl<W: Write> BPWrite<W> for &ActorObject<'_> {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
         let parent_size = self.parent_object.size();
         let prop_size = self.properties.size();
-        let size = dbg!(parent_size) + dbg!(prop_size) + 12;
+        let size = dbg!(parent_size) + dbg!(prop_size) + 8;
 
         size.bp_write(writer)?;
         self.parent_object.bp_write(writer)?;
