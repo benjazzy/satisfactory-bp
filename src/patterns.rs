@@ -3,8 +3,6 @@ pub mod factory_string;
 pub mod header;
 
 use body::*;
-use color_eyre::eyre::WrapErr;
-use factory_string::*;
 use flate2::{read, write, Compression};
 use header::*;
 use std::io::{Error, Read, Write};
