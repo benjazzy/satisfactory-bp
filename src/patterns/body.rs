@@ -3,6 +3,7 @@ mod object_header;
 mod object_ref;
 mod property_list;
 
+use std::io::{Error, Write};
 pub use object::*;
 pub use object_header::*;
 pub use object_ref::*;
@@ -13,6 +14,7 @@ use winnow::{
     combinator::{repeat, seq},
     error::StrContext,
 };
+use crate::bp_write::BPWrite;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlueprintBody<'d> {
@@ -37,6 +39,36 @@ pub fn blueprint_body<'d>(data: &mut &'d Bytes) -> winnow::Result<BlueprintBody<
     .parse_next(data)
 }
 
+impl<W: Write> BPWrite<W> for BlueprintBody<'_> {
+    fn bp_write(self, writer: &mut W) -> Result<(), Error> {
+        // Size includes count
+        let headers_size: u32 = self.object_headers.iter().map(|h| dbg!(h.size())).sum::<u32>() + 4;
+        let headers_count: u32 = self.object_headers.len().try_into().expect("Headers too long");
+
+        // Size includes count
+        let objects_size: u32 = self.objects.iter().map(ObjectType::size).sum::<u32>() + 4;
+        let objects_count: u32 = self.objects.len().try_into().expect("Objects too long");
+
+        let size = headers_size + objects_size + 8;
+
+        size.bp_write(writer)?;
+
+        headers_size.bp_write(writer)?;
+        headers_count.bp_write(writer)?;
+        for header in &self.object_headers {
+            header.bp_write(writer)?;
+        }
+
+        objects_size.bp_write(writer)?;
+        objects_count.bp_write(writer)?;
+        for object in &self.objects {
+            object.bp_write(writer)?;
+        }
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -48,5 +80,9 @@ mod tests {
         let body = blueprint_body
             .parse(DATA.into())
             .expect("parse should succeed");
+
+        let mut buf = Vec::new();
+        body.bp_write(&mut buf).expect("write should succeed");
+        assert_eq!(buf, DATA);
     }
 }

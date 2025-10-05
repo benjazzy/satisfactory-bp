@@ -15,9 +15,21 @@ pub enum ObjectType<'d> {
     Component,
 }
 
+impl ObjectType<'_> {
+    pub fn size(&self) -> u32 {
+        match self {
+            ObjectType::Actor(actor) => actor.size(),
+            ObjectType::Component => unimplemented!()
+        }
+    }
+}
+
 impl<W: Write> BPWrite<W> for &ObjectType<'_> {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
-        todo!()
+        match self {
+            ObjectType::Actor(actor) => actor.bp_write(writer),
+            ObjectType::Component => unimplemented!()
+        }
     }
 }
 
@@ -26,6 +38,15 @@ pub struct ActorObject<'d> {
     parent_object: ObjectRef<'d>,
     // TODO Components
     properties: PropertyList<'d>,
+}
+
+impl ActorObject<'_> {
+    pub fn size(&self) -> u32 {
+        let parent_object_size = self.parent_object.size();
+        let properties_size = self.properties.size();
+
+        parent_object_size + properties_size + 12
+    }
 }
 
 impl<W: Write> BPWrite<W> for &ActorObject<'_> {
@@ -108,6 +129,7 @@ mod tests {
         );
 
         assert_eq!(actor.properties.0.len(), 2);
+        assert_eq!(actor.size() as usize, DATA.len());
 
         let mut buf = Vec::new();
         actor.bp_write(&mut buf).expect("Write should succeed");

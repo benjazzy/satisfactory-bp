@@ -30,6 +30,16 @@ pub struct ActorHeader<'d> {
     pub scale_z: f32,
 }
 
+impl ActorHeader<'_> {
+    pub fn size(&self) -> u32 {
+        let type_path_size = self.type_path.size();
+        let root_object_size = self.root_object.size();
+        let instance_name_size = self.instance_name.size();
+
+        type_path_size + root_object_size + instance_name_size + 48
+    }
+}
+
 impl<W: Write> BPWrite<W> for &ActorHeader<'_> {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
         self.type_path.bp_write(writer)?;
@@ -124,6 +134,8 @@ mod tests {
             .expect("Parse should succeed");
 
         assert_eq!(actor_header, correct);
+
+        assert_eq!(actor_header.size() as usize, DATA.len());
 
         let mut buf = Vec::new();
         actor_header

@@ -1,5 +1,6 @@
 mod actor_header;
 
+use std::io::{Error, Write};
 pub use actor_header::*;
 
 use winnow::{
@@ -7,11 +8,35 @@ use winnow::{
     combinator::{alt, fail, preceded},
     error::StrContext,
 };
+use crate::bp_write::BPWrite;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ObjectHeaderType<'d> {
     Component,
     Actor(ActorHeader<'d>),
+}
+
+impl ObjectHeaderType<'_> {
+    pub fn size(&self) -> u32 {
+        match self {
+            ObjectHeaderType::Component => unimplemented!(),
+            ObjectHeaderType::Actor(actor_header) => {
+                actor_header.size() + 4
+            }
+        }
+    }
+}
+
+impl<W: Write> BPWrite<W> for ObjectHeaderType<'_> {
+    fn bp_write(self, writer: &mut W) -> Result<(), Error> {
+        match self {
+            ObjectHeaderType::Component => unimplemented!(),
+            ObjectHeaderType::Actor(header) => {
+                1u32.bp_write(writer)?;
+                header.bp_write(writer)
+            },
+        }
+    }
 }
 
 pub fn object_header_type<'d>(data: &mut &'d Bytes) -> winnow::Result<ObjectHeaderType<'d>> {
@@ -64,5 +89,10 @@ mod tests {
             .expect("Parse should succeed");
 
         assert!(matches!(header_type, ObjectHeaderType::Actor(_)));
+        assert_eq!(header_type.size() as usize, DATA.len());
+
+        let mut buf = Vec::new();
+        header_type.bp_write(&mut buf).expect("Write should succeed");
+        assert_eq!(buf, DATA);
     }
 }
