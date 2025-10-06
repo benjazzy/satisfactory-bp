@@ -10,7 +10,7 @@ use std::io::{Error, Read, Seek, SeekFrom, Write};
 use winnow::stream::AsBytes;
 use winnow::{Bytes, Parser};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Blueprint<'header, 'body> {
     pub header: Header<'header>,
     pub body: BlueprintBody<'body>,

@@ -7,21 +7,26 @@ mod bp_write;
 mod patterns;
 
 fn main() -> color_eyre::Result<()> {
-    let mut file = File::open("./blueprints/Test.sbp")?;
-    let mut buf = Vec::new();
-    let size = file.read_to_end(&mut buf)?;
-    println!("Opened blueprint file with a size of {size}");
+    let blueprint = Blueprint::default();
+    let file = File::open("./empty.sbp")?;
+    let mut writer = BufWriter::new(file);
+    blueprint.bp_write(&mut writer)?;
 
-    let mut body_buffer = Vec::new();
-    let blueprint = Blueprint::new(buf.as_slice(), &mut body_buffer)?;
-
-    let out_body = File::create("test_body.bin")?;
-    let mut body_writer = BufWriter::new(out_body);
-    blueprint.body.bp_write(&mut body_writer)?;
-
-    let out_file = File::create("test_out.sbp")?;
-    let mut out_writer = BufWriter::new(out_file);
-    blueprint.bp_write(&mut out_writer)?;
+    // let mut file = File::open("./blueprints/Test.sbp")?;
+    // let mut buf = Vec::new();
+    // let size = file.read_to_end(&mut buf)?;
+    // println!("Opened blueprint file with a size of {size}");
+    //
+    // let mut body_buffer = Vec::new();
+    // let blueprint = Blueprint::new(buf.as_slice(), &mut body_buffer)?;
+    //
+    // let out_body = File::create("test_body.bin")?;
+    // let mut body_writer = BufWriter::new(out_body);
+    // blueprint.body.bp_write(&mut body_writer)?;
+    //
+    // let out_file = File::create("test_out.sbp")?;
+    // let mut out_writer = BufWriter::new(out_file);
+    // blueprint.bp_write(&mut out_writer)?;
 
     Ok(())
 

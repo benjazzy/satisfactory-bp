@@ -7,7 +7,7 @@ use crate::{
     patterns::factory_string::{FString, fstring},
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ResourceList<'d> {
     pub resources: Vec<Resource<'d>>,
 }

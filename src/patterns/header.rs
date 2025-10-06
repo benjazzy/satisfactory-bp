@@ -1,10 +1,8 @@
-// mod body_header;
 mod recipe_list;
 mod resource_list;
 
 use std::io::Write;
 
-// pub use body_header::*;
 pub use recipe_list::*;
 pub use resource_list::*;
 
@@ -20,9 +18,11 @@ use crate::bp_write::BPWrite;
 const MAGIC_NUM: u32 = 0x9E2A83C1;
 const MAX_CHUNK_SIZE: u32 = 128 * 1024;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum BodyHeaderVersion {
     V1,
+
+    #[default]
     V2,
 }
 
@@ -54,7 +54,7 @@ pub fn body_header_version(data: &mut &Bytes) -> winnow::Result<BodyHeaderVersio
 }
 
 // Header does not write the compressed and uncompressed size of the body
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Header<'d> {
     pub maybe_header_version: u32,
     pub maybe_save_version: u32,

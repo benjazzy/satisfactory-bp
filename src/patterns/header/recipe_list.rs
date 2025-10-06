@@ -22,7 +22,7 @@ impl<W: Write> BPWrite<W> for &Recipe<'_> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct RecipeList<'d> {
     pub recipies: Vec<Recipe<'d>>,
 }
