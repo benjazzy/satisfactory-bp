@@ -54,9 +54,10 @@ impl<W: Write + Seek> BPWrite<W> for Blueprint<'_, '_> {
 
         let mut encoder = write::ZlibEncoder::new(writer, Compression::default());
         encoder.write_all(&uncompressed_body_bytes)?;
-        encoder.flush()?;
-        let compressed_size = encoder.total_out();
+        // encoder.flush()?;
+        // let compressed_size = encoder.total_out();
         let writer = encoder.finish()?;
+        let compressed_size = writer.stream_position()? - body_sizes_pos - 32;
 
         println!(
             "Finished compressing the body with an uncompressed size of {uncompressed_size} and a compressed size of {compressed_size}"
