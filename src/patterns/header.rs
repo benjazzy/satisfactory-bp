@@ -1,17 +1,59 @@
-mod body_header;
+// mod body_header;
 mod recipe_list;
 mod resource_list;
 
 use std::io::Write;
 
-pub use body_header::*;
+// pub use body_header::*;
 pub use recipe_list::*;
 pub use resource_list::*;
 
-use winnow::{Bytes, Parser, binary::le_u32, combinator::seq, error::StrContext};
+use winnow::{
+    Bytes, Parser,
+    binary::{le_u32, le_u64},
+    combinator::{alt, fail, seq},
+    error::StrContext,
+};
 
 use crate::bp_write::BPWrite;
 
+const MAGIC_NUM: u32 = 0x9E2A83C1;
+const MAX_CHUNK_SIZE: u32 = 128 * 1024;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BodyHeaderVersion {
+    V1,
+    V2,
+}
+
+impl BodyHeaderVersion {
+    const V1BYTES: &[u8] = &[0x00; 4];
+    const V2BYTES: &[u8] = &[0x22; 4];
+}
+
+impl<W: Write> BPWrite<W> for BodyHeaderVersion {
+    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
+        match self {
+            Self::V1 => Self::V1BYTES.bp_write(writer),
+            Self::V2 => Self::V2BYTES.bp_write(writer),
+        }
+    }
+}
+
+pub fn body_header_version(data: &mut &Bytes) -> winnow::Result<BodyHeaderVersion> {
+    alt((
+        BodyHeaderVersion::V1BYTES
+            .map(|_| BodyHeaderVersion::V1)
+            .context(StrContext::Label("Version 1")),
+        BodyHeaderVersion::V2BYTES
+            .map(|_| BodyHeaderVersion::V2)
+            .context(StrContext::Label("Version 2")),
+        fail.context(StrContext::Label("Did not match V1 or V2")),
+    ))
+    .parse_next(data)
+}
+
+// Header does not write the compressed and uncompressed size of the body
 #[derive(Debug)]
 pub struct Header<'d> {
     pub maybe_header_version: u32,
@@ -20,8 +62,11 @@ pub struct Header<'d> {
     pub blueprint_size: [u32; 3],
     pub resource_list: ResourceList<'d>,
     pub recipie_list: RecipeList<'d>,
-    pub body_header: BodyHeader,
+    pub header_version: BodyHeaderVersion,
+    // pub body_header: BodyHeader,
 }
+
+impl Header<'_> {}
 
 impl<W: Write> BPWrite<W> for &Header<'_> {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
@@ -33,11 +78,21 @@ impl<W: Write> BPWrite<W> for &Header<'_> {
         }
         self.resource_list.bp_write(writer)?;
         self.recipie_list.bp_write(writer)?;
-        self.body_header.bp_write(writer)
+
+        MAGIC_NUM.bp_write(writer)?;
+        self.header_version.bp_write(writer)?;
+        MAX_CHUNK_SIZE.bp_write(writer)?;
+        [0u8].bp_write(writer)?;
+        0x03000000u32.bp_write(writer)
+        // self.body_header.bp_write(writer)
     }
 }
 
 pub fn header<'d>(data: &mut &'d Bytes) -> winnow::Result<Header<'d>> {
+    const MAGIC_NUMBER_BYTES: &[u8] = MAGIC_NUM.to_le_bytes().as_slice();
+    const MAX_CHUNK_SIZE_BYTES: &[u8] = MAX_CHUNK_SIZE.to_le_bytes().as_slice();
+    const PADDING: &[u8] = &[0x00, 0x00, 0x00, 0x00, 0x03];
+
     seq! {Header {
         maybe_header_version:le_u32.context(StrContext::Label("header version")),
         maybe_save_version: le_u32.context(StrContext::Label("save version")),
@@ -50,7 +105,16 @@ pub fn header<'d>(data: &mut &'d Bytes) -> winnow::Result<Header<'d>> {
             .context(StrContext::Label("resource list")),
         recipie_list: recipe_list
             .context(StrContext::Label("recipie list")),
-        body_header: body_header.context(StrContext::Label("body header")),
+
+        _: MAGIC_NUMBER_BYTES.context(StrContext::Label("magic number 0x9E2A83C1")),
+        header_version: body_header_version.context(StrContext::Label("header version")),
+        _: MAX_CHUNK_SIZE_BYTES.context(StrContext::Label("maximum chunk size 131,072 ")),
+        _: PADDING.context(StrContext::Label("padding")),
+        _: le_u64.context(StrContext::Label("first compressed size")),
+        _: le_u64.context(StrContext::Label("first uncompressed size")),
+        _: le_u64.context(StrContext::Label("second compressed size")),
+        _: le_u64.context(StrContext::Label("second uncompressed size")),
+        // body_header: body_header.context(StrContext::Label("body header")),
     }}
     .parse_next(data)
 }
@@ -115,6 +179,7 @@ mod tests {
         let mut buf = Vec::new();
         header.bp_write(&mut buf).expect("Write should succeed");
 
-        assert_eq!(buf, DATA);
+        // Header does not write the compressed and uncompressed size of the body
+        assert_eq!(buf, DATA[..DATA.len() - 32]);
     }
 }
