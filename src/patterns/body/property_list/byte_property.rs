@@ -9,13 +9,13 @@ use winnow::{
 
 use crate::{
     bp_write::BPWrite,
-    patterns::factory_string::{FStr, fstring},
+    patterns::factory_string::{FStringExt, fstring},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ByteType<'d> {
     Byte(u8),
-    FString(&'d FStr),
+    FString(&'d str),
 }
 
 impl<W: Write> BPWrite<W> for &ByteType<'_> {
@@ -29,7 +29,7 @@ impl<W: Write> BPWrite<W> for &ByteType<'_> {
 
 fn byte_type<'d>(data: &mut &Bytes) -> winnow::Result<ByteType<'d>> {
     preceded(
-        fstring.verify(|s: &FStr| s == "None\0"),
+        fstring.verify(|s: &str| s == "None\0"),
         preceded(&[0u8], le_u8.map(ByteType::Byte)),
     )
     .parse_next(data)
@@ -65,7 +65,7 @@ impl<W: Write> BPWrite<W> for &ByteProperty<'_> {
 
         match self.value {
             ByteType::Byte(b) => {
-                FStr::new("None\0").bp_write(writer)?;
+                "None\0".bp_write(writer)?;
                 0u8.bp_write(writer)?;
                 b.bp_write(writer)?;
             }

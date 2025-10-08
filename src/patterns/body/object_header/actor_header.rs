@@ -9,14 +9,14 @@ use winnow::{
 
 use crate::{
     bp_write::BPWrite,
-    patterns::factory_string::{FStr, fstring},
+    patterns::factory_string::{FStringExt, fstring},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ActorHeader<'d> {
-    pub type_path: &'d FStr,
-    pub root_object: &'d FStr,
-    pub instance_name: &'d FStr,
+    pub type_path: &'d str,
+    pub root_object: &'d str,
+    pub instance_name: &'d str,
     pub unknown: u32,
     pub rotation_x: f32,
     pub rotation_y: f32,
@@ -113,9 +113,9 @@ mod tests {
         ];
 
         let correct = ActorHeader {
-            type_path: "/Game/FactoryGame/Prototype/Buildable/Beams/Build_Beam_Painted.Build_Beam_Painted_C\0".into(),
-            root_object: "Persistent_Level\0".into(),
-            instance_name: "Persistent_Level:PersistentLevel.Build_Beam_Painted_C_2145391819\0".into(),
+            type_path: "/Game/FactoryGame/Prototype/Buildable/Beams/Build_Beam_Painted.Build_Beam_Painted_C\0",
+            root_object: "Persistent_Level\0",
+            instance_name: "Persistent_Level:PersistentLevel.Build_Beam_Painted_C_2145391819\0",
             unknown: 1,
             rotation_x: 0.0,
             rotation_y: 0.0,

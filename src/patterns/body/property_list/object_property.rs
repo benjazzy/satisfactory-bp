@@ -4,13 +4,13 @@ use winnow::{Bytes, Parser, binary::le_u32, combinator::seq, error::StrContext};
 
 use crate::{
     bp_write::BPWrite,
-    patterns::factory_string::{FStr, fstring},
+    patterns::factory_string::{FStringExt, fstring},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ObjectProperty<'d> {
     pub index: u32,
-    pub reference: &'d FStr,
+    pub reference: &'d str,
 }
 
 impl ObjectProperty<'_> {
@@ -63,9 +63,7 @@ mod tests {
         assert_eq!(prop.index, 0);
         assert_eq!(
             prop.reference,
-            FStr::new(
-                "/Game/FactoryGame/Prototype/Buildable/Beams/Recipe_Beam_Painted.Recipe_Beam_Painted_C\0"
-            )
+            "/Game/FactoryGame/Prototype/Buildable/Beams/Recipe_Beam_Painted.Recipe_Beam_Painted_C\0",
         );
         assert_eq!(prop.size() as usize, DATA.len());
 

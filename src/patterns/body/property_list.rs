@@ -18,7 +18,7 @@ pub use struct_property::*;
 
 use crate::{
     bp_write::BPWrite,
-    patterns::factory_string::{FStr, FStringExt, fstring},
+    patterns::factory_string::{FStringExt, fstring},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -44,7 +44,7 @@ pub enum PropertyType<'d> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Property<'d> {
-    pub name: &'d FStr,
+    pub name: &'d str,
     pub property: PropertyType<'d>,
 }
 
@@ -60,7 +60,7 @@ impl Property<'_> {
     const SP: &'static str = "StructProperty\0";
 
     const NONE_PROPERTY: Property<'static> = Property {
-        name: FStr::new("None\0"),
+        name: "None\0",
         property: PropertyType::None,
     };
 
@@ -110,9 +110,9 @@ impl<W: Write> BPWrite<W> for &Property<'_> {
 }
 
 fn none_property<'d>(data: &mut &'d Bytes) -> winnow::Result<Property<'d>> {
-    const NP: &FStr = FStr::new("None\0");
+    const NP: &str = "None\0";
     seq! { Property {
-        name: fstring.verify(|s: &FStr| s == NP).context(StrContext::Label("name")),
+        name: fstring.verify(|s: &str| s == NP).context(StrContext::Label("name")),
         property: empty.value(PropertyType::None).context(StrContext::Label("property")),
     }}
     .parse_next(data)

@@ -23,41 +23,7 @@ impl FStringExt for str {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-#[repr(transparent)]
-pub struct FStr {
-    pub content: str,
-}
-
-impl FStr {
-    pub const fn new(value: &str) -> &FStr {
-        // SAFETY: FStr is just a wrapper around str,
-        // therefore converting &str to &FStr is safe.
-        // std::path::Path uses this method.
-        unsafe { &*(value as *const str as *const FStr) }
-    }
-
-    pub const fn len(&self) -> usize {
-        self.content.len()
-    }
-
-    pub fn size(&self) -> u32 {
-        (self.len() + 4)
-            .try_into()
-            .expect("Factory string too long")
-    }
-}
-
-impl<W: Write> BPWrite<W> for &FStr {
-    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
-        let len: u32 = self.len().try_into().expect("Factory String is too long");
-
-        writer.write_all(len.to_le_bytes().as_slice())?;
-        writer.write_all(self.content.as_bytes())
-    }
-}
-
-pub fn fstring<'d>(data: &mut &'d Bytes) -> winnow::Result<&'d FStr> {
+pub fn fstring<'d>(data: &mut &'d Bytes) -> winnow::Result<&'d str> {
     let length = le_u32
         .context(StrContext::Label("string length"))
         .parse_next(data)?;
@@ -66,36 +32,7 @@ pub fn fstring<'d>(data: &mut &'d Bytes) -> winnow::Result<&'d FStr> {
         .parse_next(data)?;
     let content = str::from_utf8(content).map_err(|_| ContextError::from_input(data))?;
 
-    Ok(FStr::new(content))
-}
-
-impl AsRef<str> for FStr {
-    fn as_ref(&self) -> &str {
-        &self.content
-    }
-}
-
-impl<'d> From<&'d str> for &'d FStr {
-    fn from(value: &'d str) -> Self {
-        FStr::new(value)
-    }
-}
-
-impl PartialEq<str> for FStr {
-    fn eq(&self, other: &str) -> bool {
-        self.as_ref().eq(other)
-    }
-}
-
-impl<I> Index<I> for FStr
-where
-    I: SliceIndex<str>,
-{
-    type Output = I::Output;
-
-    fn index(&self, index: I) -> &Self::Output {
-        &self.as_ref().index(index)
-    }
+    Ok(content)
 }
 
 #[cfg(test)]
@@ -117,7 +54,7 @@ pub(crate) mod test {
 
         let factory_string = fstring(&mut Bytes::new(&DATA[..])).expect("Parser should succeed");
         assert_eq!(factory_string.len(), DATA.len() - 4);
-        assert_eq!(&factory_string.content, STRING);
+        assert_eq!(factory_string, STRING);
 
         let mut buf = Vec::new();
         factory_string

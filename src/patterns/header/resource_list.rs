@@ -2,10 +2,7 @@ use std::io::Write;
 
 use winnow::{Bytes, Parser, binary::le_u32, combinator::preceded};
 
-use crate::{
-    bp_write::BPWrite,
-    patterns::factory_string::{FStr, fstring},
-};
+use crate::{bp_write::BPWrite, patterns::factory_string::fstring};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ResourceList<'d> {
@@ -32,7 +29,7 @@ pub fn resource_list<'d>(data: &mut &'d Bytes) -> winnow::Result<ResourceList<'d
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Resource<'d> {
-    pub path: &'d FStr,
+    pub path: &'d str,
     pub count: u32,
 }
 
@@ -73,9 +70,7 @@ mod tests {
 
         assert_eq!(
             resource.path,
-            FStr::new(
-                "/Game/FactoryGame/Resource/Parts/SteelPlate/Desc_SteelPlate.Desc_SteelPlate_C\0"
-            )
+            "/Game/FactoryGame/Resource/Parts/SteelPlate/Desc_SteelPlate.Desc_SteelPlate_C\0",
         );
         assert_eq!(resource.count, 2);
 

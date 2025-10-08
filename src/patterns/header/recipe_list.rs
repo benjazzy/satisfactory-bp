@@ -7,13 +7,10 @@ use winnow::{
     error::StrContext,
 };
 
-use crate::{
-    bp_write::BPWrite,
-    patterns::factory_string::{FStr, fstring},
-};
+use crate::{bp_write::BPWrite, patterns::factory_string::fstring};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Recipe<'d>(pub &'d FStr);
+pub struct Recipe<'d>(pub &'d str);
 
 impl<W: Write> BPWrite<W> for &Recipe<'_> {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {

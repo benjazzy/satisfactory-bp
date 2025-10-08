@@ -76,8 +76,6 @@ pub fn actor_object<'d>(data: &mut &'d Bytes) -> winnow::Result<ActorObject<'d>>
 
 #[cfg(test)]
 mod tests {
-    use crate::patterns::factory_string::FStr;
-
     use super::*;
 
     #[test]

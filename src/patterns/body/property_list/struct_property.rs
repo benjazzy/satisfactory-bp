@@ -11,7 +11,7 @@ use crate::{
     bp_write::BPWrite,
     patterns::{
         body::property_list::{PropertyList, property_list},
-        factory_string::{FStr, FStringExt, fstring},
+        factory_string::{FStringExt, fstring},
     },
 };
 
@@ -19,7 +19,7 @@ use crate::{
 pub enum StructDataType<'d> {
     LinearColor(LinearColor),
     Other {
-        name: &'d FStr,
+        name: &'d str,
         list: PropertyList<'d>,
     },
 }
@@ -29,7 +29,7 @@ impl StructDataType<'_> {
         &'s self,
     ) -> (
         u32,
-        &'s FStr,
+        &'s str,
         Box<dyn FnOnce(&mut W) -> Result<(), std::io::Error> + 's>,
     ) {
         match self {
