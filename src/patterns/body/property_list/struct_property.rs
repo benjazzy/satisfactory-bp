@@ -16,15 +16,12 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum StructDataType<'d> {
+pub enum StructDataType {
     LinearColor(LinearColor),
-    Other {
-        name: &'d str,
-        list: PropertyList<'d>,
-    },
+    Other { name: String, list: PropertyList },
 }
 
-impl StructDataType<'_> {
+impl StructDataType {
     pub fn get_writable<'s, W: Write>(
         &'s self,
     ) -> (
@@ -44,7 +41,7 @@ impl StructDataType<'_> {
                 let size = list.size();
                 let write = |writer: &mut W| list.bp_write(writer);
 
-                (size, *name, Box::new(write))
+                (size, name, Box::new(write))
             }
         }
     }
@@ -108,12 +105,12 @@ pub fn linear_color(data: &mut &Bytes) -> winnow::Result<LinearColor> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct StructProperty<'d> {
+pub struct StructProperty {
     pub index: u32,
-    pub data: StructDataType<'d>,
+    pub data: StructDataType,
 }
 
-impl StructProperty<'_> {
+impl StructProperty {
     const LC: &'static str = "LinearColor\0";
 
     pub fn size(&self) -> u32 {
@@ -126,7 +123,7 @@ impl StructProperty<'_> {
     }
 }
 
-impl<W: Write> BPWrite<W> for &StructProperty<'_> {
+impl<W: Write> BPWrite<W> for &StructProperty {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
         let (data_size, data_name, write_data) = self.data.get_writable();
 
@@ -138,7 +135,7 @@ impl<W: Write> BPWrite<W> for &StructProperty<'_> {
     }
 }
 
-pub fn struct_property<'d>(data: &mut &'d Bytes) -> winnow::Result<StructProperty<'d>> {
+pub fn struct_property<'d>(data: &mut &'d Bytes) -> winnow::Result<StructProperty> {
     seq! {StructProperty {
         _: le_u32,
         index: le_u32.context(StrContext::Label("struct property index")),

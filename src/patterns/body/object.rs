@@ -10,12 +10,12 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ObjectType<'d> {
-    Actor(ActorObject<'d>),
+pub enum ObjectType {
+    Actor(ActorObject),
     Component,
 }
 
-impl ObjectType<'_> {
+impl ObjectType {
     pub fn size(&self) -> u32 {
         match self {
             ObjectType::Actor(actor) => actor.size(),
@@ -24,7 +24,7 @@ impl ObjectType<'_> {
     }
 }
 
-impl<W: Write> BPWrite<W> for &ObjectType<'_> {
+impl<W: Write> BPWrite<W> for &ObjectType {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
         match self {
             ObjectType::Actor(actor) => actor.bp_write(writer),
@@ -34,13 +34,13 @@ impl<W: Write> BPWrite<W> for &ObjectType<'_> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ActorObject<'d> {
-    parent_object: ObjectRef<'d>,
+pub struct ActorObject {
+    parent_object: ObjectRef,
     // TODO Components
-    properties: PropertyList<'d>,
+    properties: PropertyList,
 }
 
-impl ActorObject<'_> {
+impl ActorObject {
     pub fn size(&self) -> u32 {
         let parent_object_size = self.parent_object.size();
         let properties_size = self.properties.size();
@@ -49,7 +49,7 @@ impl ActorObject<'_> {
     }
 }
 
-impl<W: Write> BPWrite<W> for &ActorObject<'_> {
+impl<W: Write> BPWrite<W> for &ActorObject {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
         let parent_size = self.parent_object.size();
         let prop_size = self.properties.size();
@@ -63,7 +63,7 @@ impl<W: Write> BPWrite<W> for &ActorObject<'_> {
     }
 }
 
-pub fn actor_object<'d>(data: &mut &'d Bytes) -> winnow::Result<ActorObject<'d>> {
+pub fn actor_object<'d>(data: &mut &'d Bytes) -> winnow::Result<ActorObject> {
     seq! {ActorObject {
         _: le_u32.context(StrContext::Label("size")),
         parent_object: object_ref,

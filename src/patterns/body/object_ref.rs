@@ -7,29 +7,29 @@ use crate::{
     patterns::factory_string::{FStringExt, fstring},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ObjectRef<'d> {
-    pub level_name: &'d str,
-    pub path_name: &'d str,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObjectRef {
+    pub level_name: String,
+    pub path_name: String,
 }
 
-impl ObjectRef<'_> {
+impl ObjectRef {
     pub fn size(&self) -> u32 {
         self.level_name.size() + self.path_name.size()
     }
 }
 
-impl<W: Write> BPWrite<W> for &ObjectRef<'_> {
+impl<W: Write> BPWrite<W> for &ObjectRef {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
         self.level_name.bp_write(writer)?;
         self.path_name.bp_write(writer)
     }
 }
 
-pub fn object_ref<'d>(data: &mut &'d Bytes) -> winnow::Result<ObjectRef<'d>> {
+pub fn object_ref<'d>(data: &mut &'d Bytes) -> winnow::Result<ObjectRef> {
     seq! {ObjectRef {
-        level_name: fstring.context(StrContext::Label("level name")),
-        path_name: fstring.context(StrContext::Label("path name")),
+        level_name: fstring.context(StrContext::Label("level name")).map(ToOwned::to_owned),
+        path_name: fstring.context(StrContext::Label("path name")).map(ToOwned::to_owned),
     }}
     .parse_next(data)
 }

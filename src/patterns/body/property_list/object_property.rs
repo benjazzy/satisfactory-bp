@@ -7,19 +7,19 @@ use crate::{
     patterns::factory_string::{FStringExt, fstring},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ObjectProperty<'d> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObjectProperty {
     pub index: u32,
-    pub reference: &'d str,
+    pub reference: String,
 }
 
-impl ObjectProperty<'_> {
+impl ObjectProperty {
     pub fn size(&self) -> u32 {
         self.reference.size() + 13
     }
 }
 
-impl<W: Write> BPWrite<W> for ObjectProperty<'_> {
+impl<W: Write> BPWrite<W> for &ObjectProperty {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
         let size = self.reference.size() + 4;
         size.bp_write(writer)?;
@@ -29,12 +29,12 @@ impl<W: Write> BPWrite<W> for ObjectProperty<'_> {
     }
 }
 
-pub fn object_property<'d>(data: &mut &'d Bytes) -> winnow::Result<ObjectProperty<'d>> {
+pub fn object_property<'d>(data: &mut &'d Bytes) -> winnow::Result<ObjectProperty> {
     seq! { ObjectProperty {
         _: le_u32,
         index: le_u32.context(StrContext::Label("object index")),
         _: &[0; 5],
-        reference: fstring.context(StrContext::Label("object reference")),
+        reference: fstring.context(StrContext::Label("object reference")).map(ToOwned::to_owned),
     }}
     .parse_next(data)
 }

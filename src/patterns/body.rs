@@ -17,12 +17,12 @@ use winnow::{
 };
 
 #[derive(Debug, Clone, PartialEq, Default)]
-pub struct BlueprintBody<'d> {
-    pub object_headers: Vec<ObjectHeaderType<'d>>,
-    pub objects: Vec<ObjectType<'d>>,
+pub struct BlueprintBody {
+    pub object_headers: Vec<ObjectHeaderType>,
+    pub objects: Vec<ObjectType>,
 }
 
-pub fn blueprint_body<'d>(data: &mut &'d Bytes) -> winnow::Result<BlueprintBody<'d>> {
+pub fn blueprint_body(data: &mut &Bytes) -> winnow::Result<BlueprintBody> {
     seq! {BlueprintBody {
         _: le_u32.context(StrContext::Label("body size")),
         _: le_u32.context(StrContext::Label("object headers size")),
@@ -39,7 +39,7 @@ pub fn blueprint_body<'d>(data: &mut &'d Bytes) -> winnow::Result<BlueprintBody<
     .parse_next(data)
 }
 
-impl<W: Write> BPWrite<W> for &BlueprintBody<'_> {
+impl<W: Write> BPWrite<W> for &BlueprintBody {
     fn bp_write(self, writer: &mut W) -> Result<(), Error> {
         // Size includes count
         let headers_size: u32 = self

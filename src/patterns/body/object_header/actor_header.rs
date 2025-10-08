@@ -12,11 +12,11 @@ use crate::{
     patterns::factory_string::{FStringExt, fstring},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct ActorHeader<'d> {
-    pub type_path: &'d str,
-    pub root_object: &'d str,
-    pub instance_name: &'d str,
+#[derive(Debug, Clone, PartialEq)]
+pub struct ActorHeader {
+    pub type_path: String,
+    pub root_object: String,
+    pub instance_name: String,
     pub unknown: u32,
     pub rotation_x: f32,
     pub rotation_y: f32,
@@ -30,7 +30,7 @@ pub struct ActorHeader<'d> {
     pub scale_z: f32,
 }
 
-impl ActorHeader<'_> {
+impl ActorHeader {
     pub fn size(&self) -> u32 {
         let type_path_size = self.type_path.size();
         let root_object_size = self.root_object.size();
@@ -40,7 +40,7 @@ impl ActorHeader<'_> {
     }
 }
 
-impl<W: Write> BPWrite<W> for &ActorHeader<'_> {
+impl<W: Write> BPWrite<W> for &ActorHeader {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
         self.type_path.bp_write(writer)?;
         self.root_object.bp_write(writer)?;
@@ -61,11 +61,11 @@ impl<W: Write> BPWrite<W> for &ActorHeader<'_> {
     }
 }
 
-pub fn actor_header<'d>(data: &mut &'d Bytes) -> winnow::Result<ActorHeader<'d>> {
+pub fn actor_header<'d>(data: &mut &'d Bytes) -> winnow::Result<ActorHeader> {
     seq! { ActorHeader {
-        type_path: fstring.context(StrContext::Label("type path")),
-        root_object: fstring.context(StrContext::Label("root_object")),
-        instance_name: fstring.context(StrContext::Label("instance_name")),
+        type_path: fstring.context(StrContext::Label("type path")).map(ToOwned::to_owned),
+        root_object: fstring.context(StrContext::Label("root_object")).map(ToOwned::to_owned),
+        instance_name: fstring.context(StrContext::Label("instance_name")).map(ToOwned::to_owned),
         unknown: le_u32.context(StrContext::Label("unknown")),
 
         rotation_x: le_f32.context(StrContext::Label("rotation x")),
@@ -113,9 +113,9 @@ mod tests {
         ];
 
         let correct = ActorHeader {
-            type_path: "/Game/FactoryGame/Prototype/Buildable/Beams/Build_Beam_Painted.Build_Beam_Painted_C\0",
-            root_object: "Persistent_Level\0",
-            instance_name: "Persistent_Level:PersistentLevel.Build_Beam_Painted_C_2145391819\0",
+            type_path: "/Game/FactoryGame/Prototype/Buildable/Beams/Build_Beam_Painted.Build_Beam_Painted_C\0".to_owned(),
+            root_object: "Persistent_Level\0".to_owned(),
+            instance_name: "Persistent_Level:PersistentLevel.Build_Beam_Painted_C_2145391819\0".to_owned(),
             unknown: 1,
             rotation_x: 0.0,
             rotation_y: 0.0,

@@ -22,11 +22,11 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum PropertyType<'d> {
-    ByteProperty(ByteProperty<'d>),
+pub enum PropertyType {
+    ByteProperty(ByteProperty),
     FloatProperty(FloatProperty),
-    ObjectProperty(ObjectProperty<'d>),
-    StructProperty(StructProperty<'d>),
+    ObjectProperty(ObjectProperty),
+    StructProperty(StructProperty),
     None,
 }
 
@@ -43,12 +43,12 @@ pub enum PropertyType<'d> {
 // }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Property<'d> {
-    pub name: &'d str,
-    pub property: PropertyType<'d>,
+pub struct Property {
+    pub name: String,
+    pub property: PropertyType,
 }
 
-impl Property<'_> {
+impl Property {
     // const BP: &'static FStr = FStr::new("ByteProperty\0");
     // const FP: &'static FStr = FStr::new("FloatProperty\0");
     // const OP: &'static FStr = FStr::new("ObjectProperty\0");
@@ -59,10 +59,14 @@ impl Property<'_> {
     const OP: &'static str = "ObjectProperty\0";
     const SP: &'static str = "StructProperty\0";
 
-    const NONE_PROPERTY: Property<'static> = Property {
-        name: "None\0",
-        property: PropertyType::None,
-    };
+    fn get_none_property() -> Property {
+        const NAME: &str = "None\0";
+
+        Property {
+            name: NAME.to_owned(),
+            property: PropertyType::None,
+        }
+    }
 
     pub fn size(&self) -> u32 {
         let name_size = self.name.size();
@@ -82,7 +86,7 @@ impl Property<'_> {
     }
 }
 
-impl<W: Write> BPWrite<W> for &Property<'_> {
+impl<W: Write> BPWrite<W> for &Property {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
         self.name.bp_write(writer)?;
         match &self.property {
@@ -109,18 +113,18 @@ impl<W: Write> BPWrite<W> for &Property<'_> {
     }
 }
 
-fn none_property<'d>(data: &mut &'d Bytes) -> winnow::Result<Property<'d>> {
+fn none_property<'d>(data: &mut &'d Bytes) -> winnow::Result<Property> {
     const NP: &str = "None\0";
     seq! { Property {
-        name: fstring.verify(|s: &str| s == NP).context(StrContext::Label("name")),
+        name: fstring.verify(|s: &str| s == NP).context(StrContext::Label("name")).map(ToOwned::to_owned),
         property: empty.value(PropertyType::None).context(StrContext::Label("property")),
     }}
     .parse_next(data)
 }
 
-fn some_property<'d>(data: &mut &'d Bytes) -> winnow::Result<Property<'d>> {
+fn some_property<'d>(data: &mut &'d Bytes) -> winnow::Result<Property> {
     seq! {Property {
-        name: fstring.context(StrContext::Label("property name")),
+        name: fstring.context(StrContext::Label("property name")).map(ToOwned::to_owned),
         property: dispatch! {fstring.map(|t| t.as_ref()).context(StrContext::Label("property type"));
             Property::BP => byte_property.map(PropertyType::ByteProperty),
             Property::FP => float_property.map(PropertyType::FloatProperty),
@@ -132,7 +136,7 @@ fn some_property<'d>(data: &mut &'d Bytes) -> winnow::Result<Property<'d>> {
     .parse_next(data)
 }
 
-fn property<'d>(data: &mut &'d Bytes) -> winnow::Result<Property<'d>> {
+fn property<'d>(data: &mut &'d Bytes) -> winnow::Result<Property> {
     alt((
         none_property.context(StrContext::Label("none property")),
         some_property.context(StrContext::Label("data containing property")),
@@ -141,31 +145,31 @@ fn property<'d>(data: &mut &'d Bytes) -> winnow::Result<Property<'d>> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct PropertyList<'d>(pub Vec<Property<'d>>);
+pub struct PropertyList(pub Vec<Property>);
 
-impl PropertyList<'_> {
+impl PropertyList {
     pub fn size(&self) -> u32 {
-        self.0.iter().map(|p| p.size()).sum::<u32>() + Property::NONE_PROPERTY.size()
+        self.0.iter().map(|p| p.size()).sum::<u32>() + Property::get_none_property().size()
     }
 }
 
-impl<W: Write> BPWrite<W> for &PropertyList<'_> {
+impl<W: Write> BPWrite<W> for &PropertyList {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
         for prop in &self.0 {
             prop.bp_write(writer)?;
         }
 
-        Property::NONE_PROPERTY.bp_write(writer)
+        Property::get_none_property().bp_write(writer)
     }
 }
 
-impl<'d> AsRef<[Property<'d>]> for PropertyList<'d> {
-    fn as_ref(&self) -> &[Property<'d>] {
+impl<'d> AsRef<[Property]> for PropertyList {
+    fn as_ref(&self) -> &[Property] {
         self.0.as_ref()
     }
 }
 
-pub fn property_list<'d>(data: &mut &'d Bytes) -> winnow::Result<PropertyList<'d>> {
+pub fn property_list<'d>(data: &mut &'d Bytes) -> winnow::Result<PropertyList> {
     terminated(
         repeat(
             1..,

@@ -11,24 +11,22 @@ use winnow::stream::AsBytes;
 use winnow::{Bytes, Parser};
 
 #[derive(Debug, Default)]
-pub struct Blueprint<'header, 'body> {
+pub struct Blueprint<'header> {
     pub header: Header<'header>,
-    pub body: BlueprintBody<'body>,
+    pub body: BlueprintBody,
 }
 
-impl<'header, 'body> Blueprint<'header, 'body> {
-    pub fn new<B: Into<&'header Bytes>>(
-        data: B,
-        body_buffer: &'body mut Vec<u8>,
-    ) -> color_eyre::Result<Self> {
+impl<'header> Blueprint<'header> {
+    pub fn new<B: Into<&'header Bytes>>(data: B) -> color_eyre::Result<Self> {
         let mut data = data.into();
         let header = header.parse_next(&mut data).unwrap();
         // .wrap_err("Failed to parse blueprint header")?;
 
         // let mut compressed_body = Vec::with_capacity(header.body_header.uncompressed_size as usize);
         // body_buffer.reserve(header.body_header.uncompressed_size as usize);
+        let mut body_buffer = Vec::new();
         let mut decoder = read::ZlibDecoder::new(data.as_bytes());
-        let _ = decoder.read_to_end(body_buffer).unwrap();
+        let _ = decoder.read_to_end(&mut body_buffer).unwrap();
         // .wrap_err("Failed to decompress blueprint body")?;
 
         let body = blueprint_body.parse(body_buffer.as_slice().into()).unwrap();
@@ -38,7 +36,7 @@ impl<'header, 'body> Blueprint<'header, 'body> {
     }
 }
 
-impl<W: Write + Seek> BPWrite<W> for Blueprint<'_, '_> {
+impl<W: Write + Seek> BPWrite<W> for Blueprint<'_> {
     fn bp_write(self, writer: &mut W) -> Result<(), Error> {
         self.header.bp_write(writer)?;
 
@@ -112,8 +110,7 @@ mod tests {
     fn check_blueprint() {
         const DATA: &[u8] = include_bytes!("../blueprints/Test.sbp");
 
-        let mut body_buffer = Vec::new();
-        let blueprint = Blueprint::new(DATA, &mut body_buffer).expect("Parse should succeed");
+        let blueprint = Blueprint::new(DATA).expect("Parse should succeed");
 
         // let mut buf = Vec::new();
         // blueprint.body.bp_write(&mut buf).expect("Body write should succeed");

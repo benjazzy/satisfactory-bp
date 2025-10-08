@@ -12,13 +12,13 @@ use crate::{
     patterns::factory_string::{FStringExt, fstring},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ByteType<'d> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ByteType {
     Byte(u8),
-    FString(&'d str),
+    FString(String),
 }
 
-impl<W: Write> BPWrite<W> for &ByteType<'_> {
+impl<W: Write> BPWrite<W> for &ByteType {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
         match self {
             ByteType::Byte(b) => b.bp_write(writer),
@@ -27,7 +27,7 @@ impl<W: Write> BPWrite<W> for &ByteType<'_> {
     }
 }
 
-fn byte_type<'d>(data: &mut &Bytes) -> winnow::Result<ByteType<'d>> {
+fn byte_type<'d>(data: &mut &Bytes) -> winnow::Result<ByteType> {
     preceded(
         fstring.verify(|s: &str| s == "None\0"),
         preceded(&[0u8], le_u8.map(ByteType::Byte)),
@@ -35,28 +35,28 @@ fn byte_type<'d>(data: &mut &Bytes) -> winnow::Result<ByteType<'d>> {
     .parse_next(data)
 }
 
-fn fstring_type<'d>(data: &mut &'d Bytes) -> winnow::Result<ByteType<'d>> {
+fn fstring_type<'d>(data: &mut &'d Bytes) -> winnow::Result<ByteType> {
     unimplemented!()
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ByteProperty<'d> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ByteProperty {
     index: u32,
-    value: ByteType<'d>,
+    value: ByteType,
 }
 
-impl ByteProperty<'_> {
+impl ByteProperty {
     pub fn size(&self) -> u32 {
-        match self.value {
+        match &self.value {
             ByteType::Byte(_) => 19,
             ByteType::FString(fstring) => fstring.size(),
         }
     }
 }
 
-impl<W: Write> BPWrite<W> for &ByteProperty<'_> {
+impl<W: Write> BPWrite<W> for &ByteProperty {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
-        let size = match self.value {
+        let size = match &self.value {
             ByteType::Byte(_) => 1,
             ByteType::FString(fstring) => fstring.size(),
         };
@@ -76,7 +76,7 @@ impl<W: Write> BPWrite<W> for &ByteProperty<'_> {
     }
 }
 
-pub fn byte_property<'d>(data: &mut &'d Bytes) -> winnow::Result<ByteProperty<'d>> {
+pub fn byte_property<'d>(data: &mut &'d Bytes) -> winnow::Result<ByteProperty> {
     seq! { ByteProperty {
         _: le_u32.context(StrContext::Label("size")),
         index: le_u32.context(StrContext::Label("index")),

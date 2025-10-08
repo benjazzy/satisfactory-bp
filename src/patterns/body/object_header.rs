@@ -10,13 +10,13 @@ use winnow::{
     error::StrContext,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ObjectHeaderType<'d> {
+#[derive(Debug, Clone, PartialEq)]
+pub enum ObjectHeaderType {
     Component,
-    Actor(ActorHeader<'d>),
+    Actor(ActorHeader),
 }
 
-impl ObjectHeaderType<'_> {
+impl ObjectHeaderType {
     pub fn size(&self) -> u32 {
         match self {
             ObjectHeaderType::Component => unimplemented!(),
@@ -25,7 +25,7 @@ impl ObjectHeaderType<'_> {
     }
 }
 
-impl<W: Write> BPWrite<W> for ObjectHeaderType<'_> {
+impl<W: Write> BPWrite<W> for &ObjectHeaderType {
     fn bp_write(self, writer: &mut W) -> Result<(), Error> {
         match self {
             ObjectHeaderType::Component => unimplemented!(),
@@ -37,7 +37,7 @@ impl<W: Write> BPWrite<W> for ObjectHeaderType<'_> {
     }
 }
 
-pub fn object_header_type<'d>(data: &mut &'d Bytes) -> winnow::Result<ObjectHeaderType<'d>> {
+pub fn object_header_type(data: &mut &Bytes) -> winnow::Result<ObjectHeaderType> {
     alt((
         (&0_u32.to_le_bytes()[..]).map(|_| ObjectHeaderType::Component),
         actor_type,
@@ -46,7 +46,7 @@ pub fn object_header_type<'d>(data: &mut &'d Bytes) -> winnow::Result<ObjectHead
     .parse_next(data)
 }
 
-fn actor_type<'d>(data: &mut &'d Bytes) -> winnow::Result<ObjectHeaderType<'d>> {
+fn actor_type<'d>(data: &mut &'d Bytes) -> winnow::Result<ObjectHeaderType> {
     preceded(
         (&1_u32.to_le_bytes()).context(StrContext::Label("object header type")),
         actor_header.context(StrContext::Label("actor header")),

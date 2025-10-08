@@ -17,8 +17,7 @@ fn main() -> color_eyre::Result<()> {
     let size = file.read_to_end(&mut buf)?;
     println!("Opened blueprint file with a size of {size}");
 
-    let mut body_buffer = Vec::new();
-    let blueprint = Blueprint::new(buf.as_slice(), &mut body_buffer)?;
+    let blueprint = Blueprint::new(buf.as_slice())?;
 
     let out_body = File::create("test_body.bin")?;
     let mut body_writer = BufWriter::new(out_body);
