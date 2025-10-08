@@ -9,11 +9,11 @@ use winnow::{
 
 use crate::{
     bp_write::BPWrite,
-    patterns::factory_string::{FString, fstring},
+    patterns::factory_string::{FStr, fstring},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Recipe<'d>(pub FString<'d>);
+pub struct Recipe<'d>(pub &'d FStr);
 
 impl<W: Write> BPWrite<W> for &Recipe<'_> {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {

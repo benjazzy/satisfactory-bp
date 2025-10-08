@@ -11,7 +11,7 @@ use crate::{
     bp_write::BPWrite,
     patterns::{
         body::property_list::{PropertyList, property_list},
-        factory_string::{FString, fstring},
+        factory_string::{FStr, FStringExt, fstring},
     },
 };
 
@@ -19,7 +19,7 @@ use crate::{
 pub enum StructDataType<'d> {
     LinearColor(LinearColor),
     Other {
-        name: FString<'d>,
+        name: &'d FStr,
         list: PropertyList<'d>,
     },
 }
@@ -29,7 +29,7 @@ impl StructDataType<'_> {
         &'s self,
     ) -> (
         u32,
-        FString<'s>,
+        &'s FStr,
         Box<dyn FnOnce(&mut W) -> Result<(), std::io::Error> + 's>,
     ) {
         match self {
@@ -38,7 +38,7 @@ impl StructDataType<'_> {
                 let name = StructProperty::LC;
                 let write = |writer: &mut W| lc.bp_write(writer);
 
-                (size, name, Box::new(write))
+                (size, name.into(), Box::new(write))
             }
             StructDataType::Other { name, list } => {
                 let size = list.size();
@@ -114,7 +114,7 @@ pub struct StructProperty<'d> {
 }
 
 impl StructProperty<'_> {
-    const LC: FString<'static> = FString::new("LinearColor\0");
+    const LC: &'static str = "LinearColor\0";
 
     pub fn size(&self) -> u32 {
         let data_size = match &self.data {
@@ -142,9 +142,9 @@ pub fn struct_property<'d>(data: &mut &'d Bytes) -> winnow::Result<StructPropert
     seq! {StructProperty {
         _: le_u32,
         index: le_u32.context(StrContext::Label("struct property index")),
-        data: dispatch! {terminated(fstring, &[0; 17]);
+        data: dispatch! {terminated(fstring, &[0; 17]).map(AsRef::as_ref);
             StructProperty::LC => linear_color.map(StructDataType::LinearColor).context(StrContext::Label("linear color data")),
-            name => property_list.map(|list| StructDataType::Other { name, list }).context(StrContext::Label("property list data")),
+            name => property_list.map(|list| StructDataType::Other { name: name.into(), list }).context(StrContext::Label("property list data")),
         },
     }}.parse_next(data)
 }

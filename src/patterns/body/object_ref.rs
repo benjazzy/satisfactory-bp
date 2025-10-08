@@ -4,13 +4,13 @@ use winnow::{Bytes, Parser, combinator::seq, error::StrContext};
 
 use crate::{
     bp_write::BPWrite,
-    patterns::factory_string::{FString, fstring},
+    patterns::factory_string::{FStr, fstring},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ObjectRef<'d> {
-    pub level_name: FString<'d>,
-    pub path_name: FString<'d>,
+    pub level_name: &'d FStr,
+    pub path_name: &'d FStr,
 }
 
 impl ObjectRef<'_> {
@@ -49,8 +49,8 @@ mod tests {
             0x73, 0x79, 0x73, 0x74, 0x65, 0x6D, 0x00,
         ];
 
-        let level = "Persistent_Level\0".into();
-        let path = "Persistent_Level:PersistentLevel.BuildableSubsystem\0".into();
+        let level = FStr::new("Persistent_Level\0");
+        let path = FStr::new("Persistent_Level:PersistentLevel.BuildableSubsystem\0");
 
         let object_ref = object_ref
             .parse((&DATA[..]).into())

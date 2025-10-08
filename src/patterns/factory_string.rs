@@ -1,4 +1,6 @@
 use std::io::Write;
+use std::ops::Index;
+use std::slice::SliceIndex;
 
 use winnow::error::{ContextError, ParserError, StrContext};
 
@@ -9,14 +11,30 @@ use winnow::{Bytes, Parser};
 
 use crate::bp_write::BPWrite;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct FString<'s> {
-    pub content: &'s str,
+pub trait FStringExt {
+    fn size(&self) -> u32;
 }
 
-impl<'s> FString<'s> {
-    pub const fn new(value: &'s str) -> Self {
-        FString { content: value }
+impl FStringExt for str {
+    fn size(&self) -> u32 {
+        (self.len() + 4)
+            .try_into()
+            .expect("Factory string too long")
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+#[repr(transparent)]
+pub struct FStr {
+    pub content: str,
+}
+
+impl FStr {
+    pub const fn new(value: &str) -> &FStr {
+        // SAFETY: FStr is just a wrapper around str,
+        // therefore converting &str to &FStr is safe.
+        // std::path::Path uses this method.
+        unsafe { &*(value as *const str as *const FStr) }
     }
 
     pub const fn len(&self) -> usize {
@@ -30,7 +48,7 @@ impl<'s> FString<'s> {
     }
 }
 
-impl<W: Write> BPWrite<W> for &FString<'_> {
+impl<W: Write> BPWrite<W> for &FStr {
     fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
         let len: u32 = self.len().try_into().expect("Factory String is too long");
 
@@ -39,7 +57,7 @@ impl<W: Write> BPWrite<W> for &FString<'_> {
     }
 }
 
-pub fn fstring<'d>(data: &mut &'d Bytes) -> winnow::Result<FString<'d>> {
+pub fn fstring<'d>(data: &mut &'d Bytes) -> winnow::Result<&'d FStr> {
     let length = le_u32
         .context(StrContext::Label("string length"))
         .parse_next(data)?;
@@ -48,18 +66,35 @@ pub fn fstring<'d>(data: &mut &'d Bytes) -> winnow::Result<FString<'d>> {
         .parse_next(data)?;
     let content = str::from_utf8(content).map_err(|_| ContextError::from_input(data))?;
 
-    Ok(FString { content })
+    Ok(FStr::new(content))
 }
 
-impl AsRef<str> for FString<'_> {
+impl AsRef<str> for FStr {
     fn as_ref(&self) -> &str {
-        self.content
+        &self.content
     }
 }
 
-impl<'d> From<&'d str> for FString<'d> {
+impl<'d> From<&'d str> for &'d FStr {
     fn from(value: &'d str) -> Self {
-        FString::new(value)
+        FStr::new(value)
+    }
+}
+
+impl PartialEq<str> for FStr {
+    fn eq(&self, other: &str) -> bool {
+        self.as_ref().eq(other)
+    }
+}
+
+impl<I> Index<I> for FStr
+where
+    I: SliceIndex<str>,
+{
+    type Output = I::Output;
+
+    fn index(&self, index: I) -> &Self::Output {
+        &self.as_ref().index(index)
     }
 }
 
@@ -82,7 +117,7 @@ pub(crate) mod test {
 
         let factory_string = fstring(&mut Bytes::new(&DATA[..])).expect("Parser should succeed");
         assert_eq!(factory_string.len(), DATA.len() - 4);
-        assert_eq!(factory_string.content, STRING);
+        assert_eq!(&factory_string.content, STRING);
 
         let mut buf = Vec::new();
         factory_string

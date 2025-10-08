@@ -87,3 +87,12 @@ impl<W: Write> BPWrite<W> for &[u8] {
         writer.write_all(self)
     }
 }
+
+impl<W: Write> BPWrite<W> for &str {
+    fn bp_write(self, writer: &mut W) -> Result<(), std::io::Error> {
+        let len: u32 = self.len().try_into().expect("Factory String is too long");
+
+        writer.write_all(len.to_le_bytes().as_slice())?;
+        writer.write_all(self.as_bytes())
+    }
+}

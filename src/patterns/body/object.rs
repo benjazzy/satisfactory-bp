@@ -76,6 +76,8 @@ pub fn actor_object<'d>(data: &mut &'d Bytes) -> winnow::Result<ActorObject<'d>>
 
 #[cfg(test)]
 mod tests {
+    use crate::patterns::factory_string::FStr;
+
     use super::*;
 
     #[test]
@@ -122,9 +124,9 @@ mod tests {
             .parse(DATA.as_slice().into())
             .expect("parse should succeed");
 
-        assert_eq!(actor.parent_object.level_name.content, "Persistent_Level\0");
+        assert_eq!(actor.parent_object.level_name, "Persistent_Level\0");
         assert_eq!(
-            actor.parent_object.path_name.content,
+            actor.parent_object.path_name,
             "Persistent_Level:PersistentLevel.BuildableSubsystem\0"
         );
 
@@ -203,9 +205,9 @@ mod tests {
             .parse(DATA.as_slice().into())
             .expect("parse should succeed");
 
-        assert_eq!(actor.parent_object.level_name.content, "Persistent_Level\0");
+        assert_eq!(actor.parent_object.level_name, "Persistent_Level\0");
         assert_eq!(
-            actor.parent_object.path_name.content,
+            actor.parent_object.path_name,
             "Persistent_Level:PersistentLevel.BuildableSubsystem\0"
         );
 

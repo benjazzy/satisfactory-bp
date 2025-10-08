@@ -18,7 +18,7 @@ pub use struct_property::*;
 
 use crate::{
     bp_write::BPWrite,
-    patterns::factory_string::{FString, fstring},
+    patterns::factory_string::{FStr, FStringExt, fstring},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -44,18 +44,23 @@ pub enum PropertyType<'d> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Property<'d> {
-    pub name: FString<'d>,
+    pub name: &'d FStr,
     pub property: PropertyType<'d>,
 }
 
 impl Property<'_> {
-    const BP: FString<'static> = FString::new("ByteProperty\0");
-    const FP: FString<'static> = FString::new("FloatProperty\0");
-    const OP: FString<'static> = FString::new("ObjectProperty\0");
-    const SP: FString<'static> = FString::new("StructProperty\0");
+    // const BP: &'static FStr = FStr::new("ByteProperty\0");
+    // const FP: &'static FStr = FStr::new("FloatProperty\0");
+    // const OP: &'static FStr = FStr::new("ObjectProperty\0");
+    // const SP: &'static FStr = FStr::new("StructProperty\0");
+
+    const BP: &'static str = "ByteProperty\0";
+    const FP: &'static str = "FloatProperty\0";
+    const OP: &'static str = "ObjectProperty\0";
+    const SP: &'static str = "StructProperty\0";
 
     const NONE_PROPERTY: Property<'static> = Property {
-        name: FString::new("None\0"),
+        name: FStr::new("None\0"),
         property: PropertyType::None,
     };
 
@@ -105,9 +110,9 @@ impl<W: Write> BPWrite<W> for &Property<'_> {
 }
 
 fn none_property<'d>(data: &mut &'d Bytes) -> winnow::Result<Property<'d>> {
-    const NP: FString = FString::new("None\0");
+    const NP: &FStr = FStr::new("None\0");
     seq! { Property {
-        name: fstring.verify(|s| *s == NP).context(StrContext::Label("name")),
+        name: fstring.verify(|s: &FStr| s == NP).context(StrContext::Label("name")),
         property: empty.value(PropertyType::None).context(StrContext::Label("property")),
     }}
     .parse_next(data)
@@ -116,7 +121,7 @@ fn none_property<'d>(data: &mut &'d Bytes) -> winnow::Result<Property<'d>> {
 fn some_property<'d>(data: &mut &'d Bytes) -> winnow::Result<Property<'d>> {
     seq! {Property {
         name: fstring.context(StrContext::Label("property name")),
-        property: dispatch! {fstring.context(StrContext::Label("property type"));
+        property: dispatch! {fstring.map(|t| t.as_ref()).context(StrContext::Label("property type"));
             Property::BP => byte_property.map(PropertyType::ByteProperty),
             Property::FP => float_property.map(PropertyType::FloatProperty),
             Property::OP => object_property.map(PropertyType::ObjectProperty),
@@ -190,7 +195,7 @@ mod tests {
             .parse(DATA.as_slice().into())
             .expect("Parse should succeed");
 
-        assert_eq!(prop.name.content, "mColorSlot\0");
+        assert_eq!(prop.name, "mColorSlot\0");
         assert!(matches!(prop.property, PropertyType::ByteProperty(_)));
 
         let mut buf = Vec::new();
@@ -207,7 +212,7 @@ mod tests {
             .parse(DATA.as_slice().into())
             .expect("Parse should succeed");
 
-        assert_eq!(prop.name.content, "None\0");
+        assert_eq!(prop.name, "None\0");
         assert_eq!(prop.property, PropertyType::None);
         assert_eq!(prop.size() as usize, DATA.len());
 
@@ -239,7 +244,7 @@ mod tests {
             .expect("Parse should succeed");
 
         assert_eq!(prop_list.0.len(), 1);
-        assert_eq!(prop_list.0[0].name.content, "SwatchDesc\0");
+        assert_eq!(prop_list.0[0].name, "SwatchDesc\0");
         assert!(matches!(
             prop_list.0[0].property,
             PropertyType::ObjectProperty(_)

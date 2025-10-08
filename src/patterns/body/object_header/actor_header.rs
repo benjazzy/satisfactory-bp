@@ -9,14 +9,14 @@ use winnow::{
 
 use crate::{
     bp_write::BPWrite,
-    patterns::factory_string::{FString, fstring},
+    patterns::factory_string::{FStr, fstring},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ActorHeader<'d> {
-    pub type_path: FString<'d>,
-    pub root_object: FString<'d>,
-    pub instance_name: FString<'d>,
+    pub type_path: &'d FStr,
+    pub root_object: &'d FStr,
+    pub instance_name: &'d FStr,
     pub unknown: u32,
     pub rotation_x: f32,
     pub rotation_y: f32,
